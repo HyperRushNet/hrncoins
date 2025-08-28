@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>HRNCoins Wallet — Stable Version</title>
+<title>HRNCoins Wallet — Stabiele versie</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://unpkg.com/html5-qrcode@2.0.0/minified/html5-qrcode.min.js" defer></script>
 <style>
@@ -163,15 +163,15 @@ footer {
 <body>
 <div class="container">
   <header>
-    <h1>HRNCoins Wallet — Stable Version</h1>
-    <div class="muted">Client-only UI · always syncs with API</div>
+    <h1>HRNCoins Wallet — Stabiele versie</h1>
+    <div class="muted">Client-only UI · synchroniseert altijd met API</div>
   </header>
 
   <section id="auth" class="card">
     <div style="display:flex;gap:0.5rem;align-items:center">
       <div style="flex:1">
-        <label for="username">Username</label>
-        <input id="username" placeholder="e.g., jane123" autocomplete="username" />
+        <label for="username">Gebruikersnaam</label>
+        <input id="username" placeholder="bijv. jan123" autocomplete="username" />
       </div>
       <div style="width:140px">
         <label>&nbsp;</label>
@@ -179,10 +179,10 @@ footer {
       </div>
     </div>
     <div class="row" style="margin-top:0.6rem">
-      <button id="btnCreate" class="ghost">Create new wallet</button>
-      <button id="btnForget" class="ghost">Forget local state</button>
+      <button id="btnCreate" class="ghost">Maak nieuwe wallet</button>
+      <button id="btnForget" class="ghost">Vergeet lokale staat</button>
     </div>
-    <p class="muted" style="margin-top:0.6rem">This client only stores the last username locally — the truth always comes from the server.</p>
+    <p class="muted" style="margin-top:0.6rem">Deze client bewaart alleen de laatste gebruikersnaam lokaal — de waarheid komt altijd van de server.</p>
   </section>
 
   <section id="wallet" class="card" style="display:none">
@@ -199,31 +199,31 @@ footer {
 
     <div style="margin-top:1rem;display:flex;gap:0.5rem">
       <button id="btnAdd100" class="primary">+100 HRNCoins</button>
-      <button id="btnDelete" class="ghost">Delete wallet</button>
+      <button id="btnDelete" class="ghost">Verwijder wallet</button>
     </div>
 
     <div style="margin-top:0.6rem;display:flex">
-      <button id="btnLogout" class="ghost">Logout</button>
+      <button id="btnLogout" class="ghost">Uitloggen</button>
     </div>
 
     <hr style="margin:1rem 0" />
 
-    <h3 style="margin:0 0 0.5rem 0">Request payment (QR)</h3>
+    <h3 style="margin:0 0 0.5rem 0">Vraag betaling aan (QR)</h3>
     <div class="row-inline">
       <div>
-        <label for="requestAmount">Amount</label>
+        <label for="requestAmount">Bedrag</label>
         <input id="requestAmount" type="number" min="0.0001" step="0.0001" placeholder="0.00" />
       </div>
       <div style="width:160px">
         <label>&nbsp;</label>
-        <button id="btnGenerate" class="primary">Generate QR</button>
+        <button id="btnGenerate" class="primary">Genereer QR</button>
       </div>
     </div>
     <div id="qrPreview" style="margin-top:0.6rem"></div>
 
     <hr style="margin:1rem 0" />
 
-    <h3 style="margin:0 0 0.5rem 0">Scan payment</h3>
+    <h3 style="margin:0 0 0.5rem 0">Scan betaling</h3>
     <div id="scannerWrapper">
       <div id="scanner" style="width:100%;height:100%"></div>
     </div>
@@ -234,8 +234,12 @@ footer {
     </div>
 
     <div style="margin-top:0.8rem">
-      <div class="muted">Last action</div>
+      <div class="muted">Laatste actie</div>
       <div id="lastAction" class="muted">—</div>
+    </div>
+    <div style="margin-top:0.8rem">
+      <div class="muted">Laatste ontvangen betaling</div>
+      <div id="lastReceivedPayment" class="muted">—</div>
     </div>
   </section>
 
@@ -247,7 +251,7 @@ footer {
     <pre id="log" class="log"></pre>
   </div>
 
-  <footer>Storage: local (username) — All actions sync with <code>BASE</code> API. Open-source, use at your own risk.</footer>
+  <footer>Opslaan: lokaal (gebruikersnaam) — Alle acties synchroniseren met <code>BASE</code> API. Open-source, gebruik op eigen risico.</footer>
 </div>
 
 <script>
@@ -260,6 +264,7 @@ let state = { user: null, balance: 0 };
 let html5QrCode = null;
 let currentCameraId = null;
 let scanning = false;
+let lastServerTransaction = null;
 
 const $ = id => document.getElementById(id);
 
@@ -335,7 +340,7 @@ async function syncBalance() {
 async function doLogin() {
   const user = $('username').value.trim();
   if (!user) {
-    toast('Please enter a username');
+    toast('Vul een gebruikersnaam in');
     return;
   }
   try {
@@ -347,20 +352,20 @@ async function doLogin() {
       showWallet();
       await syncBalance();
       startScannerIfNeeded();
-      toast('Logged in');
+      toast('Ingelogd');
     } else {
-      toast('Wallet does not exist — please create it');
+      toast('Wallet bestaat niet — maak hem aan');
     }
   } catch (err) {
-    log('Login error: ' + err);
-    toast('Could not reach server');
+    log('Login fout: ' + err);
+    toast('Kan server niet bereiken');
   }
 }
 
 async function doCreate() {
   const user = $('username').value.trim();
   if (!user) {
-    toast('Please enter a username');
+    toast('Vul een gebruikersnaam in');
     return;
   }
   try {
@@ -371,12 +376,12 @@ async function doCreate() {
     saveLocalUsername(state.user);
     showWallet();
     $('balance').textContent = state.balance;
-    toast('Wallet created');
+    toast('Wallet aangemaakt');
     log('Created ' + state.user);
     startScannerIfNeeded();
   } catch (err) {
     log('Create error: ' + err);
-    toast('Creation failed');
+    toast('Aanmaken mislukt');
   }
 }
 
@@ -387,40 +392,40 @@ async function doAdd100() {
     const d = await res.json();
     state.balance = d.newBalance ?? state.balance;
     $('balance').textContent = state.balance;
-    toast('+100 successful');
+    toast('+100 geslaagd');
     log('Deposited 100');
   } catch (err) {
     log('Deposit error: ' + err);
-    toast('Deposit failed');
+    toast('Deposit mislukt');
   }
 }
 
 async function doDelete() {
   if (!state.user) return;
-  if (!confirm(`Delete wallet ${state.user}? This is irreversible.`)) return;
+  if (!confirm(`Verwijder wallet ${state.user}? Dit is onomkeerbaar.`)) return;
   try {
     const res = await fetchWithRetries(`${BASE}/deleteAccount?user=${encodeURIComponent(state.user)}`);
     if (res.ok) {
       log('Deleted ' + state.user);
-      toast('Wallet deleted');
+      toast('Wallet verwijderd');
       hideWallet();
       forgetLocal();
     }
   } catch (err) {
     log('Delete error: ' + err);
-    toast('Deletion failed');
+    toast('Verwijderen mislukt');
   }
 }
 
 function doLogout() {
   forgetLocal();
   hideWallet();
-  toast('Logged out');
-  log('Logged out');
+  toast('Uitgelogd');
+  log('Uitgelogd');
 }
 
 /* ----------------------
-    QR: generate and better payload
+    QR: genereren en betere payload
     ---------------------- */
 function buildPaymentPayload(to, amount) {
   const uri = `hrncoins://pay?to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`;
@@ -431,7 +436,7 @@ function buildPaymentPayload(to, amount) {
 function generateQRCode() {
   const amount = $('requestAmount').value.trim();
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-    toast('Invalid amount');
+    toast('Ongeldig bedrag');
     return;
   }
   const payload = buildPaymentPayload(state.user, amount);
@@ -441,29 +446,53 @@ function generateQRCode() {
   const meta = document.createElement('div');
   meta.style.textAlign = 'center';
   meta.style.marginTop = '0.5rem';
-  meta.innerHTML = `<div class="muted">URI</div><code style="font-size:0.85rem">${payload.uri}</code><div style="margin-top:0.5rem"><button id="btnCopy" class="ghost">Copy URI</button> <button id="btnShare" class="ghost">Share</button></div>`;
+  meta.innerHTML = `<div class="muted">URI</div><code style="font-size:0.85rem">${payload.uri}</code><div style="margin-top:0.5rem"><button id="btnCopy" class="ghost">Kopieer URI</button> <button id="btnShare" class="ghost">Deel</button></div>`;
   container.appendChild(meta);
   $('btnCopy')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(payload.uri).then(() => toast('Copied'));
+    navigator.clipboard.writeText(payload.uri).then(() => toast('Gekopieerd'));
   });
   $('btnShare')?.addEventListener('click', () => {
     if (navigator.share) {
-      navigator.share({ title: 'HRNCoins request', text: `Pay ${amount} HRNCoins to ${state.user}`, url: payload.uri }).catch(() => toast('Share failed'));
+      navigator.share({ title: 'HRNCoins verzoek', text: `Betaal ${amount} HRNCoins aan ${state.user}`, url: payload.uri }).catch(() => toast('Deel mislukt'));
     } else {
-      navigator.clipboard.writeText(payload.uri).then(() => toast('Copied'));
+      navigator.clipboard.writeText(payload.uri).then(() => toast('Gekopieerd'));
     }
   });
-  log(`QR generated for ${amount} → ${state.user}`);
-  pollBalanceForMinute();
+  log(`QR gegenereerd voor ${amount} → ${state.user}`);
+  pollForPayment();
 }
 
-async function pollBalanceForMinute() {
+async function pollForPayment() {
   const totalChecks = 12; // 60 seconds / 5 seconds
   const checkInterval = 5000; // 5 seconds in milliseconds
-  for (let i = 0; i < totalChecks; i++) {
-    await new Promise(r => setTimeout(r, checkInterval));
-    await syncBalance();
-  }
+  let checkCount = 0;
+  
+  const poll = setInterval(async () => {
+    try {
+      const res = await fetchWithRetries(`${BASE}/lastTransaction`);
+      const lastTx = await res.json();
+      
+      if (lastTx && lastTx.to === state.user && lastTx.timestamp !== lastServerTransaction?.timestamp) {
+        lastServerTransaction = lastTx;
+        const msg = `Betaling van ${lastTx.amount} ontvangen van ${lastTx.from}`;
+        $('lastReceivedPayment').textContent = msg;
+        log(msg);
+        toast(`Betaling ontvangen!`);
+        await syncBalance();
+        clearInterval(poll);
+      }
+      
+      checkCount++;
+      if (checkCount >= totalChecks) {
+        clearInterval(poll);
+        log('Betalingscontrole gestopt');
+      }
+
+    } catch (err) {
+      log('Fout bij controleren betaling: ' + err);
+      // Blijf proberen tot max aantal checks is bereikt
+    }
+  }, checkInterval);
 }
 
 /* ----------------------
@@ -489,7 +518,7 @@ async function startScannerIfNeeded() {
       select.value = currentCameraId;
     }
     $('btnSwitch').textContent = 'Start camera';
-    log('Cameras found: ' + devices.length);
+    log('Camera\'s gevonden: ' + devices.length);
   } catch (err) {
     log('Camera detect error: ' + err);
   }
@@ -498,17 +527,17 @@ async function startScannerIfNeeded() {
 function startCameraById(id) {
   if (!id) return;
   if (scanning) {
-    toast('Scanner already active');
+    toast('Scanner al actief');
     return;
   }
   const config = { fps: 10, qrbox: (window.innerWidth > 600 ? 350 : 220), aspectRatio: 1.2 };
   html5QrCode.start(id, config, onScanSuccess, onScanFailure).then(() => {
     scanning = true;
-    $('btnSwitch').textContent = 'Camera active';
-    log('Scanner started');
+    $('btnSwitch').textContent = 'Camera actief';
+    log('Scanner gestart');
   }).catch(err => {
     log('Start camera error: ' + err);
-    toast('Could not start camera');
+    toast('Kan camera niet starten');
   });
 }
 
@@ -517,7 +546,7 @@ function stopCamera() {
     html5QrCode.stop().then(() => {
       scanning = false;
       $('btnSwitch').textContent = 'Start camera';
-      log('Scanner stopped');
+      log('Scanner gestopt');
     }).catch(err => log('Stop camera error: ' + err));
   }
 }
@@ -539,34 +568,34 @@ async function onScanSuccess(decodedText, decodedResult) {
       payload = JSON.parse(decodedText);
     }
     if (!payload || !payload.to || !payload.amount) {
-      toast('Invalid QR payload');
+      toast('Ongeldig QR payload');
       return;
     }
-    if (!confirm(`Confirm: pay ${payload.amount} HRNCoins to ${payload.to}?`)) {
-      log('Payment canceled');
+    if (!confirm(`Bevestig: betaal ${payload.amount} HRNCoins aan ${payload.to}?`)) {
+      log('Betaling geannuleerd');
       return;
     }
     await doTransfer(payload.to, payload.amount);
     await syncBalance();
   } catch (err) {
     log('Scan parse error: ' + err);
-    toast('Could not process QR');
+    toast('Kan QR niet verwerken');
   }
 }
 
-function onScanFailure(error) { /* we ignore frequent failures */ }
+function onScanFailure(error) { /* we negeren frequente failures */ }
 
 async function doTransfer(to, amount) {
   if (!state.user) return;
   try {
     const res = await fetchWithRetries(`${BASE}/transfer?from=${encodeURIComponent(state.user)}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`);
     if (res.ok) {
-      toast('Payment sent');
+      toast('Betaling verstuurd');
       log(`Paid ${amount} to ${to}`);
     }
   } catch (err) {
     log('Transfer error: ' + err);
-    toast('Transfer failed');
+    toast('Betaling mislukt');
   }
 }
 
@@ -605,7 +634,7 @@ window.addEventListener('load', () => {
   $('btnGenerate').addEventListener('click', generateQRCode);
   $('btnForget').addEventListener('click', () => {
     forgetLocal();
-    toast('Local state cleared');
+    toast('Lokale staat verwijderd');
   });
 
   $('cameraSelect').addEventListener('change', (e) => {
