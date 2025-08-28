@@ -106,6 +106,7 @@
         <pre id="txLog"></pre>
         <hr>
         <button onclick="logout()">Uitloggen</button>
+        <button onclick="deleteAccount()" class="admin-reset">Delete Wallet</button>
     </div>
     <div class="card hidden" id="qrGenScreen">
         <div class="section-title">Create QR Code</div>
@@ -131,7 +132,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzbPZnV0-LQu3TvHsJLQmsPYvMjsydDwMqD11V1pea6nxh-VkrsJh3-aZRNlheYDEP9dA/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyaoUNPZJF8Ciwjc1taSS54Gd9iQK5ZiHCw9l4BthpmbpQ9fk-99HW--SS3y0TrQNATHw/exec";
     let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
     let html5QrCode;
     let pollIntervalId;
@@ -271,7 +272,6 @@
             cancelButtonText: 'Annuleren'
         }).then((result) => {
             if (result.isConfirmed) {
-                // Now, transfer the coins using the recipient's username, as that is the backend's preference.
                 transfer(recipientUsername, amount, "QR Payment");
             }
         });
@@ -415,8 +415,6 @@
         const fromId = currentWalletId;
         const password = currentPassword;
         
-        // This is a special case for QR code payments.
-        // For regular transfers, we get the recipient username and amount from the form.
         let targetUsername = toUsername;
         let targetAmount = amount;
         
@@ -467,6 +465,51 @@
             }
         } finally {
             setButtonLoading(button, false);
+        }
+    }
+
+    async function deleteAccount() {
+        const confirmation = await Swal.fire({
+            title: 'Weet je het zeker?',
+            text: "Je kunt dit niet ongedaan maken!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ja, verwijder mijn wallet'
+        });
+
+        if (confirmation.isConfirmed) {
+            const { value: password } = await Swal.fire({
+                title: 'Voer je wachtwoord in ter bevestiging',
+                input: 'password',
+                inputPlaceholder: 'Voer je wachtwoord in',
+                showCancelButton: true,
+                confirmButtonText: 'Verwijderen',
+                cancelButtonText: 'Annuleren',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Je moet je wachtwoord invoeren!';
+                    }
+                }
+            });
+
+            if (password) {
+                const button = document.querySelector("#walletActions .admin-reset");
+                setButtonLoading(button, true);
+                try {
+                    const res = await fetch(`${API_URL}?action=deleteWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(password)}`);
+                    const data = await res.json();
+                    if (data.error) {
+                        Swal.fire("Error", data.error, "error");
+                    } else {
+                        Swal.fire("Succes", "Je wallet is verwijderd.", "success");
+                        logout();
+                    }
+                } finally {
+                    setButtonLoading(button, false);
+                }
+            }
         }
     }
 
