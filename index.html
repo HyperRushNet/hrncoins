@@ -5,7 +5,6 @@
 <title>HyperRush Coins Dashboard</title>
 <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 <style>
-  /* Modern clean UI */
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #121212;
@@ -141,6 +140,18 @@ async function login(){
   pollIncoming(); // start polling
 }
 
+// --- Refresh balance ---
+async function refreshBalance(){
+  if(!currentWalletId || !currentPassword) return 0;
+  const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(currentPassword)}`);
+  const data = await res.json();
+  if(!data.error){
+    currentBalance = data.balance;
+    document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)}`;
+  }
+  return currentBalance;
+}
+
 // --- Add Coins ---
 async function addCoins(){
   const amount = parseFloat(document.getElementById("addAmount").value);
@@ -149,7 +160,7 @@ async function addCoins(){
   const data = await res.json();
   if(data.error){ Swal.fire('Error', data.error,'error'); return; }
   Swal.fire('Success', `Added ${formatNumber(amount)} coins`, 'success');
-  document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(data.balance)}`;
+  await refreshBalance();
   listTx();
 }
 
@@ -159,14 +170,19 @@ async function transfer(){
   const amount = parseFloat(document.getElementById("transferAmount").value);
   const memo = document.getElementById("memo").value;
   if(!to || !amount) return Swal.fire('Error','Please enter recipient and amount','error');
+  
+  await refreshBalance(); // live balance check
+
   if(amount > currentBalance) return Swal.fire('Error','Insufficient balance','error');
   if(to === currentWalletId) return Swal.fire('Error','Cannot send coins to yourself','error');
+  
   const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(currentWalletId)}&to=${encodeURIComponent(to)}&amount=${amount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(currentPassword)}`);
   const data = await res.json();
   if(data.error){ Swal.fire('Error', data.error,'error'); return; }
+  
   Swal.fire('Success', `Sent ${formatNumber(amount)} coins to ${to}`, 'success');
+  await refreshBalance();
   listTx();
-  login(); // refresh balance
 }
 
 // --- Transaction log ---
