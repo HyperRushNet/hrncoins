@@ -243,13 +243,14 @@
     </div>
     <div class="card hidden" id="createScreen">
         <div class="section-title">Create Wallet</div>
+        <input id="newUsername" type="text" placeholder="Choose a username">
         <input id="newPassword" type="password" placeholder="Enter password">
         <button id="createButton" onclick="createAccount()"><span>Create</span><div class="loading-spinner"></div></button>
         <button onclick="backToWelcome()">Back</button>
     </div>
     <div class="card hidden" id="loginScreen">
         <div class="section-title">Login</div>
-        <input id="walletId" placeholder="Wallet ID">
+        <input id="userId" placeholder="Username or Wallet ID">
         <input id="walletPassword" type="password" placeholder="Password">
         <label><input type="checkbox" id="rememberMe"> Onthoud mij</label>
         <button id="loginButton" onclick="login()"><span>Login</span><div class="loading-spinner"></div></button>
@@ -264,13 +265,17 @@
         <input id="addAmount" type="number" placeholder="Amount">
         <button id="addCoinsButton" onclick="addCoins()"><span>Add Coins</span><div class="loading-spinner"></div></button>
         <div class="section-title">Transfer Coins</div>
-        <input id="to" placeholder="Recipient Wallet ID">
+        <input id="to" placeholder="Recipient Username">
         <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
         <input id="memo" placeholder="Memo (optional)">
         <button id="transferButton" onclick="transfer()"><span>Send</span><div class="loading-spinner"></div></button>
         <div class="section-title">QR Code Payments</div>
         <button onclick="showQRGen()">Create QR Code</button>
         <button onclick="showQRScan()">Scan QR Code</button>
+        <div class="section-title">Change Password</div>
+        <input id="oldPassword" type="password" placeholder="Current password">
+        <input id="newPassword" type="password" placeholder="New password">
+        <button id="changePasswordButton" onclick="changePassword()"><span>Change Password</span><div class="loading-spinner"></div></button>
         <div class="section-title">History</div>
         <button id="listTxButton" onclick="listTx()"><span>Refresh</span><div class="loading-spinner"></div></button>
         <pre id="txLog"></pre>
@@ -301,7 +306,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY41xp3sxrhT_twOJ8w/exec";
-    let currentWalletId = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
+    let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
     let html5QrCode;
     let pollIntervalId;
 
@@ -314,7 +319,7 @@
         if (storedWallet) {
             try {
                 const walletData = JSON.parse(storedWallet);
-                document.getElementById('walletId').value = walletData.id;
+                document.getElementById('userId').value = walletData.idOrUsername;
                 document.getElementById('walletPassword').value = walletData.password;
                 document.getElementById('rememberMe').checked = true;
                 Swal.fire({
@@ -349,7 +354,6 @@
     function showWalletActions() {
         hideAll();
         document.getElementById("walletActions").classList.remove("hidden");
-        // Update balance and tx log when returning
         refreshBalance();
         listTx();
     }
@@ -368,9 +372,8 @@
         try {
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length) {
-                let cameraId = cameras[0].id; // Fallback to first camera
+                let cameraId = cameras[0].id;
                 
-                // Zoek de meest waarschijnlijke achtercamera
                 const backCamera = cameras.find(camera => 
                     camera.facingMode === 'environment' || 
                     (camera.label && camera.label.toLowerCase().includes('back')) ||
@@ -395,15 +398,13 @@
                     (decodedText, decodedResult) => {
                         onScanSuccess(decodedText);
                     },
-                    (errorMessage) => {
-                        // console.warn(`QR scan error: ${errorMessage}`);
-                    }
+                    (errorMessage) => {}
                 );
             } else {
                 Swal.fire("Error", "Geen camera's gevonden.", "error");
             }
         } catch(e) {
-             Swal.fire("Error", "Kan de camera niet starten. Zorg dat je de juiste rechten hebt.", "error");
+            Swal.fire("Error", "Kan de camera niet starten. Zorg dat je de juiste rechten hebt.", "error");
         }
     }
 
@@ -425,23 +426,23 @@
         const queryString = decodedText.substring(prefix.length);
         const params = new URLSearchParams(queryString);
         
-        const recipientId = params.get('to');
+        const recipientUsername = params.get('to');
         const amount = parseFloat(params.get('amount'));
 
-        if (!recipientId || isNaN(amount) || amount <= 0) {
+        if (!recipientUsername || isNaN(amount) || amount <= 0) {
             return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
         }
 
         Swal.fire({
             title: `Betaal ${formatNumber(amount)} coins?`,
-            html: `Aan: <b>${recipientId}</b>`,
+            html: `Aan: <b>${recipientUsername}</b>`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Ja, betaal',
             cancelButtonText: 'Annuleren'
         }).then((result) => {
             if (result.isConfirmed) {
-                transfer(recipientId, amount);
+                transfer(recipientUsername, amount, "QR Payment");
             }
         });
     }
@@ -474,17 +475,18 @@
 
     async function createAccount() {
         const button = document.getElementById("createButton");
+        const username = document.getElementById("newUsername").value;
         const pw = document.getElementById("newPassword").value;
-        if (!pw) return Swal.fire("Error", "Enter a password", "error");
+        if (!username || !pw) return Swal.fire("Error", "Username and password required", "error");
 
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=createWallet&password=${encodeURIComponent(pw)}`);
+            const res = await fetch(`${API_URL}?action=createWallet&username=${encodeURIComponent(username)}&password=${encodeURIComponent(pw)}`);
             const data = await res.json();
             if (data.error) {
                 Swal.fire("Error", data.error, "error");
             } else {
-                Swal.fire("Success", `Wallet created: <code>${data.id}</code>`, "success");
+                Swal.fire("Success", `Wallet created for user <b>${data.username}</b> with ID <code>${data.id}</code>`, "success");
                 backToWelcome();
             }
         } finally {
@@ -494,24 +496,25 @@
 
     async function login() {
         const button = document.getElementById("loginButton");
-        const id = document.getElementById("walletId").value;
+        const idOrUsername = document.getElementById("userId").value;
         const pw = document.getElementById("walletPassword").value;
         const rememberMe = document.getElementById("rememberMe").checked;
 
-        if (!id || !pw) return Swal.fire("Error", "Missing credentials", "error");
+        if (!idOrUsername || !pw) return Swal.fire("Error", "Missing credentials", "error");
 
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(id)}&password=${encodeURIComponent(pw)}`);
+            const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(idOrUsername)}&password=${encodeURIComponent(pw)}`);
             const data = await res.json();
             if (data.error) {
                 Swal.fire("Error", data.error, "error");
             } else {
-                currentWalletId = id;
+                currentWalletId = data.id;
+                currentUsername = data.username;
                 currentPassword = pw;
                 currentBalance = data.balance;
                 if (rememberMe) {
-                    localStorage.setItem('hyperrush_wallet', JSON.stringify({ id: id, password: pw }));
+                    localStorage.setItem('hyperrush_wallet', JSON.stringify({ idOrUsername: idOrUsername, password: pw }));
                 } else {
                     localStorage.removeItem('hyperrush_wallet');
                 }
@@ -529,9 +532,10 @@
     function logout() {
         localStorage.removeItem('hyperrush_wallet');
         currentWalletId = "";
+        currentUsername = "";
         currentPassword = "";
         currentBalance = 0;
-        document.getElementById('walletId').value = "";
+        document.getElementById('userId').value = "";
         document.getElementById('walletPassword').value = "";
         document.getElementById('rememberMe').checked = false;
         backToWelcome();
@@ -540,12 +544,12 @@
 
     function updateWalletInfo() {
         const walletIdDisplay = document.getElementById("walletIdDisplay");
-        walletIdDisplay.innerHTML = `<span class="label">Wallet ID:</span> <span class="id-value">${currentWalletId}</span><button id="copyButton" onclick="copyToClipboard('${currentWalletId}')">📋</button>`;
+        walletIdDisplay.innerHTML = `<span class="label">User:</span> <span class="id-value">${currentUsername}</span><br><span class="label">ID:</span> <span class="id-value">${currentWalletId}</span><button id="copyButton" onclick="copyToClipboard('${currentWalletId}')">📋</button>`;
         document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)} coins`;
     }
 
     async function refreshBalance() {
-        const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(currentPassword)}`);
+        const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentUsername)}&password=${encodeURIComponent(currentPassword)}`);
         const data = await res.json();
         if (!data.error) {
             currentBalance = data.balance;
@@ -575,7 +579,7 @@
 
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);
+            const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentUsername)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);
             const data = await res.json();
             if (data.error) {
                 Swal.fire("Error", data.error, "error");
@@ -589,15 +593,19 @@
         }
     }
 
-    async function transfer(to, amount, memo = "") {
+    async function transfer() {
         const button = document.getElementById("transferButton");
-        const from = currentWalletId;
+        const to = document.getElementById("to").value;
+        const amount = parseFloat(document.getElementById("transferAmount").value);
+        const memo = document.getElementById("memo").value;
+        const from = currentUsername;
         const password = currentPassword;
+
         if (!to || isNaN(amount) || amount <= 0) return Swal.fire("Error", "Check fields", "error");
         
         await refreshBalance();
         if (amount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
-        if (to === from) return Swal.fire("Error", "Cannot send to self", "error");
+        if (to.toLowerCase() === from.toLowerCase()) return Swal.fire("Error", "Cannot send to self", "error");
 
         setButtonLoading(button, true);
         try {
@@ -614,15 +622,37 @@
             setButtonLoading(button, false);
         }
     }
+
+    async function changePassword() {
+        const button = document.getElementById("changePasswordButton");
+        const oldPw = document.getElementById("oldPassword").value;
+        const newPw = document.getElementById("newPassword").value;
+
+        if (!oldPw || !newPw) return Swal.fire("Error", "Fill in both passwords", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=changePassword&id=${encodeURIComponent(currentUsername)}&oldPassword=${encodeURIComponent(oldPw)}&newPassword=${encodeURIComponent(newPw)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                Swal.fire("Success", "Password changed successfully.", "success");
+                currentPassword = newPw;
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
     
     function generateQR() {
         const amount = document.getElementById("qrAmount").value;
-        if (!currentWalletId || !amount || parseFloat(amount) <= 0) {
+        if (!currentUsername || !amount || parseFloat(amount) <= 0) {
             return Swal.fire("Error", "Vul een geldig bedrag in.", "error");
         }
         
         const qrCanvas = document.getElementById("qrCanvas");
-        const data = `hyperrushcoins://pay?to=${currentWalletId}&amount=${amount}`;
+        const data = `hyperrushcoins://pay?to=${currentUsername}&amount=${amount}`;
 
         new QRious({
             element: qrCanvas,
@@ -637,9 +667,20 @@
         const button = document.getElementById("listTxButton");
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+            const res = await fetch(`${API_URL}?action=listTx&limit=50&username=${encodeURIComponent(currentUsername)}`);
             const data = await res.json();
-            document.getElementById("txLog").innerText = JSON.stringify(data.map(t => ({...t, amount: formatNumber(t.amount)})), null, 2);
+            
+            let logText = `--- Transactions for ${currentUsername} ---\n\n`;
+            data.forEach(tx => {
+              const direction = tx.from.toLowerCase() === currentUsername.toLowerCase() ? "OUT" : "IN";
+              const otherParty = direction === "OUT" ? tx.to : tx.from;
+              const sign = direction === "OUT" ? "-" : "+";
+              
+              logText += `${new Date(tx.ts).toLocaleString()}\n`;
+              logText += `  ${sign}${formatNumber(tx.amount)} from ${otherParty}\n`;
+              logText += `  Memo: ${tx.memo || "-"}\n\n`;
+            });
+            document.getElementById("txLog").innerText = logText;
             lastTxIds = data.map(tx => tx.ts);
         } finally {
             setButtonLoading(button, false);
@@ -685,23 +726,28 @@
     }
     
     async function pollIncoming() {
-        if (!currentWalletId) return;
-        const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+        if (!currentUsername) return;
+        const res = await fetch(`${API_URL}?action=listTx&limit=10&username=${encodeURIComponent(currentUsername)}`);
         const data = await res.json();
-        data.forEach(tx => {
-            if (!lastTxIds.includes(tx.ts) && tx.to === currentWalletId && tx.from !== "system") {
-                Swal.fire({
-                    icon: "success",
-                    title: "Coins Received",
-                    html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || "-"}`,
-                    timer: 5000,
-                    showConfirmButton: false,
-                    timerProgressBar: true
-                });
-                currentBalance += parseFloat(tx.amount);
-                updateWalletInfo();
-            }
+
+        // Check only for new incoming transactions
+        const newIncoming = data.filter(tx => 
+            tx.to.toLowerCase() === currentUsername.toLowerCase() &&
+            !lastTxIds.includes(tx.ts)
+        );
+        
+        newIncoming.forEach(tx => {
+            Swal.fire({
+                icon: "success",
+                title: "Coins Received",
+                html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || "-"}`,
+                timer: 5000,
+                showConfirmButton: false,
+                timerProgressBar: true
+            });
+            refreshBalance(); // Refresh the balance after a new transaction
         });
+        
         lastTxIds = data.map(tx => tx.ts);
     }
 </script>
