@@ -361,26 +361,38 @@
     async function showQRScan() {
         hideAll();
         document.getElementById("qrScanScreen").classList.remove("hidden");
-        // Start scanner
+        
+        await stopScanner();
+
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        };
+
+        const html5QrCode = new Html5Qrcode("reader");
+        
         try {
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length) {
+                let cameraId = cameras[0].id; // Fallback to first camera
+                // Zoek de achtercamera ("environment")
+                const rearCamera = cameras.find(camera => camera.facingMode === 'environment');
+                if (rearCamera) {
+                    cameraId = rearCamera.id;
+                }
+                
                 await html5QrCode.start(
-                    cameras[0].id, {
-                        qrbox: { width: 250, height: 250 },
-                        fps: 10
-                    },
+                    cameraId,
+                    config,
                     (decodedText, decodedResult) => {
                         onScanSuccess(decodedText);
-                        stopScanner();
                     },
                     (errorMessage) => {
                         // console.warn(`QR scan error: ${errorMessage}`);
                     }
                 );
+                window.currentScanner = html5QrCode;
             } else {
                 Swal.fire("Error", "Geen camera's gevonden.", "error");
             }
@@ -390,12 +402,13 @@
     }
 
     async function stopScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            await html5QrCode.stop();
+        if (window.currentScanner && window.currentScanner.isScanning) {
+            await window.currentScanner.stop();
         }
     }
 
     function onScanSuccess(decodedText) {
+        stopScanner();
         let recipientId, amount;
         try {
             const url = new URL(decodedText);
