@@ -1,622 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>HyperRush Coins</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <style>
-        :root {
-            --primary: #007bff;
-            --primary-light: #0056b3;
-            --bg-dark: #f8f9fa;
-            --bg-card: #ffffff;
-            --text-light: #212529;
-            --text-muted: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
-            --border-color: #dee2e6;
-        }
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        header { text-align: center; padding: 2rem; background: var(--bg-card); width: 100%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-        header h1 { margin: 0; font-size: 2.5rem; color: var(--primary); }
-        .container { width: 100%; max-width: 900px; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
-        @media (min-width: 600px) { .container { padding: 2rem; } }
-        .card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; transform: translateY(0); }
-        .card:hover { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); transform: translateY(-2px); }
-        .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; color: var(--primary); }
-        #walletInfo { font-size: 1.1rem; }
-        #walletIdDisplay { word-wrap: break-word; font-family: monospace; align-items: center; margin-bottom: 0.5rem; }
-        #walletIdDisplay .label { font-size: 0.9rem; color: var(--text-muted); margin-right: 0.5rem; }
-        #walletIdDisplay .id-value { font-weight: bold; }
-        #copyButton { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; font-size: 1rem; margin-left: 0.5rem; width: auto; margin-bottom: 0; opacity: 0.8; transition: opacity 0.2s; }
-        #copyButton:hover { opacity: 1; }
-        input, button { padding: 0.8rem; font-size: 1rem; border-radius: 0; border: 1px solid #ced4da; margin-bottom: 1rem; width: 100%; transition: all 0.2s ease-in-out; }
-        input[type="checkbox"] { width: auto; margin-right: 0.5rem; }
-        label { display: flex; align-items: center; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted); }
-        input { background: #f1f3f5; color: var(--text-light); }
-        input::placeholder { color: var(--text-muted); }
-        button { background: var(--primary); color: white; font-weight: bold; border: none; position: relative; }
-        button:hover { background: var(--primary-light); }
-        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
-        button.admin-reset { background-color: var(--danger); }
-        .qr-placeholder { width: 100%; display: flex; justify-content: center; margin-bottom: 1rem; }
-        .loading-spinner { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 1.2rem; height: 1.2rem; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
-        .is-loading .loading-spinner { display: block; }
-        .is-loading span { visibility: hidden; }
-        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-        pre { background: #e9ecef; color: var(--text-light); padding: 1rem; border: 1px solid #ced4da; max-height: 300px; overflow-y: auto; font-size: 0.9rem; line-height: 1.4; }
-        .hidden { display: none; }
-        .user-name-display { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-bottom: 0.5rem; text-align: center; }
-        .wallet-id-display { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HRNCoins Wallet QR</title>
+<style>
+body { font-family:sans-serif; max-width:600px; margin:2em auto; padding:1em; background:#f9f9f9; }
+h1,h2 { text-align:center; }
+input,button { padding:.5em; margin:.3em 0; width:100%; }
+button { cursor:pointer; }
+#log { background:#fff; border:1px solid #ccc; padding:.5em; height:200px; overflow:auto; margin-top:1em; }
+.success { color:green; } .error { color:red; }
+#qrCode, #scanner { text-align:center; margin:1em 0; }
+</style>
 </head>
 <body>
-<header>
-    <h1>HyperRush Coins</h1>
-</header>
-<div class="container">
-    <div class="card" id="welcomeScreen">
-        <div class="section-title">Welcome</div>
-        <button onclick="showCreate()">Create New Wallet</button>
-        <button onclick="showLogin()">Login to Wallet</button>
-        <button onclick="showAdmin()">Admin Reset</button>
-    </div>
-    <div class="card hidden" id="createScreen">
-        <div class="section-title">Create Wallet</div>
-        <input id="newUsername" type="text" placeholder="Choose a username">
-        <input id="newPassword" type="password" placeholder="Enter password">
-        <button id="createButton" onclick="createAccount()"><span>Create</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button>
-    </div>
-    <div class="card hidden" id="loginScreen">
-        <div class="section-title">Login via Wallet ID</div>
-        <input id="walletId" placeholder="Enter Wallet ID">
-        <input id="walletPassword" type="password" placeholder="Password">
-        <label><input type="checkbox" id="rememberMe"> Onthoud mij</label>
-        <button id="loginButton" onclick="login()"><span>Login</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button>
-    </div>
-    <div class="card hidden" id="walletActions">
-        <div class="section-title">Wallet</div>
-        <div id="welcomeUser" class="user-name-display"></div>
-        <div id="walletIdDisplay" class="wallet-id-display"></div>
-        <div id="walletInfo"></div>
-        <hr>
-        <div class="section-title">Add Coins</div>
-        <input id="addAmount" type="number" placeholder="Amount">
-        <button id="addCoinsButton" onclick="addCoins()"><span>Add Coins</span><div class="loading-spinner"></div></button>
-        <div class="section-title">Transfer Coins</div>
-        <input id="toUsername" placeholder="Recipient Username">
-        <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
-        <input id="memo" placeholder="Memo (optional)">
-        <button id="transferButton" onclick="transfer()"><span>Send</span><div class="loading-spinner"></div></button>
-        <div class="section-title">QR Code Payments</div>
-        <button onclick="showQRGen()">Create QR Code</button>
-        <button onclick="showQRScan()">Scan QR Code</button>
-        <div class="section-title">Change Password</div>
-        <input id="oldPassword" type="password" placeholder="Current password">
-        <input id="newPassword" type="password" placeholder="New password">
-        <button id="changePasswordButton" onclick="changePassword()"><span>Change Password</span><div class="loading-spinner"></div></button>
-        <div class="section-title">History</div>
-        <button id="listTxButton" onclick="listTx()"><span>Refresh</span><div class="loading-spinner"></div></button>
-        <pre id="txLog"></pre>
-        <hr>
-        <button onclick="logout()">Uitloggen</button>
-        <button onclick="deleteAccount()" class="admin-reset">Delete Wallet</button>
-    </div>
-    <div class="card hidden" id="qrGenScreen">
-        <div class="section-title">Create QR Code</div>
-        <input id="qrAmount" type="number" placeholder="Amount to request">
-        <button onclick="generateQR()">Generate QR</button>
-        <div class="qr-placeholder"><canvas id="qrCanvas"></canvas></div>
-        <p class="wallet-id-display">ID: <span id="qrWalletId"></span></p>
-        <button onclick="showWalletActions()">Back</button>
-    </div>
-    <div class="card hidden" id="qrScanScreen">
-        <div class="section-title">Scan QR Code</div>
-        <p>Richt de camera op de QR-code.</p>
-        <div id="reader"></div>
-        <button onclick="stopScanner()">Stop Scanner</button>
-        <button onclick="showWalletActions()">Back</button>
-    </div>
-    <div class="card hidden" id="adminScreen">
-        <div class="section-title">Admin Reset</div>
-        <input id="adminPassword" type="password" placeholder="Admin Password">
-        <button id="adminResetButton" onclick="adminReset()" class="admin-reset"><span>Reset All</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button>
-    </div>
+<h1>HRNCoins Wallet QR</h1>
+
+<div id="loginDiv">
+  <h2>Login / Create Wallet</h2>
+  <input id="username" placeholder="Username"/>
+  <button onclick="login()">Login / Check Wallet</button>
+  <button onclick="createWallet()">Create Wallet</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div id="walletDiv" style="display:none;">
+  <h2 id="walletName">Wallet: </h2>
+  <p>Balance: <span id="balance">0</span></p>
+
+  <h3>Request Payment via QR</h3>
+  <input id="requestAmount" placeholder="Amount" type="number"/>
+  <button onclick="generateQR()">Generate QR</button>
+  <div id="qrCode"></div>
+
+  <h3>Scan Payment QR</h3>
+  <div id="scanner" style="width:300px;height:300px;margin:auto"></div>
+  <button id="switchCameraBtn" onclick="switchCamera()">Switch Camera</button>
+
+  <button onclick="deleteAccount()">Delete My Wallet</button>
+</div>
+
+<div id="log"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyaoUNPZJF8Ciwjc1taSS54Gd9iQK5ZiHCw9l4BthpmbpQ9fk-99HW--SS3y0TrQNATHw/exec";
-    let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
-    let html5QrCode;
-    let pollIntervalId;
+const BASE = "https://hrncoins.onrender.com";
+let currentUser = null;
+let html5QrCode;
+let currentCameraIndex = 0;
+let cameras = [];
 
-    document.addEventListener('DOMContentLoaded', () => {
-        loadWalletFromStorage();
-    });
+function log(msg,type="") {
+  const l = document.getElementById("log");
+  const p = document.createElement("div");
+  if(type) p.className = type;
+  p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  l.appendChild(p);
+  l.scrollTop = l.scrollHeight;
+}
 
-    function loadWalletFromStorage() {
-        const storedWallet = localStorage.getItem('hyperrush_wallet');
-        if (storedWallet) {
-            try {
-                const walletData = JSON.parse(storedWallet);
-                document.getElementById('walletId').value = walletData.id;
-                document.getElementById('walletPassword').value = walletData.password;
-                document.getElementById('rememberMe').checked = true;
-                Swal.fire({
-                    title: 'Welkom terug!',
-                    text: 'Je inloggegevens zijn automatisch ingevuld.',
-                    icon: 'info',
-                    showConfirmButton: false,
-                    timer: 3000
-                });
-            } catch (e) {
-                console.error("Failed to parse stored wallet data", e);
-                localStorage.removeItem('hyperrush_wallet');
-            }
-        }
+async function login() {
+  const user = document.getElementById("username").value.trim();
+  if(!user) { log("Enter username","error"); return; }
+  try {
+    const r = await fetch(`${BASE}/exists?user=${encodeURIComponent(user)}`);
+    const data = await r.json();
+    if(data.exists) {
+      currentUser = user;
+      showWallet();
+      await refreshBalance();
+      log(`Logged in as ${user}`, "success");
+      startScanner();
+    } else {
+      log("Wallet does not exist, create it first","error");
     }
+  } catch(e){ log("Error checking wallet: "+e,"error"); }
+}
 
-    function showCreate() {
-        hideAll();
-        document.getElementById("createScreen").classList.remove("hidden");
-    }
+async function createWallet() {
+  const user = document.getElementById("username").value.trim();
+  if(!user) { log("Enter username","error"); return; }
+  try {
+    const r = await fetch(`${BASE}/createWallet?user=${encodeURIComponent(user)}`);
+    if(!r.ok){ const txt=await r.text(); log(txt,"error"); return; }
+    const data = await r.json();
+    currentUser = data.name;
+    showWallet();
+    document.getElementById("balance").textContent = data.balance;
+    log(`Wallet created for ${data.name}`,"success");
+    startScanner();
+  } catch(e){ log("Error creating wallet: "+e,"error"); }
+}
 
-    function showLogin() {
-        hideAll();
-        document.getElementById("loginScreen").classList.remove("hidden");
-    }
+function showWallet() {
+  document.getElementById("loginDiv").style.display="none";
+  document.getElementById("walletDiv").style.display="block";
+  document.getElementById("walletName").textContent = `Wallet: ${currentUser}`;
+}
 
-    function showAdmin() {
-        hideAll();
-        document.getElementById("adminScreen").classList.remove("hidden");
-    }
+async function refreshBalance() {
+  if(!currentUser) return;
+  try {
+    const r = await fetch(`${BASE}/balance?user=${encodeURIComponent(currentUser)}`);
+    if(!r.ok){ log("Failed to get balance","error"); return; }
+    const data = await r.json();
+    document.getElementById("balance").textContent = data.balance;
+  } catch(e){ log("Error fetching balance: "+e,"error"); }
+}
 
-    function showWalletActions() {
-        hideAll();
-        document.getElementById("walletActions").classList.remove("hidden");
-        refreshBalance();
-        listTx();
-    }
+function generateQR() {
+  const amount = document.getElementById("requestAmount").value;
+  if(!amount){ log("Enter valid amount","error"); return; }
+  const qrData = JSON.stringify({to: currentUser, amount});
+  document.getElementById("qrCode").innerHTML = '';
+  new QRCode(document.getElementById("qrCode"), {text: qrData, width: 200, height: 200});
+  log(`QR for ${amount} to ${currentUser} generated`,"success");
+}
 
-    function showQRGen() {
-        hideAll();
-        document.getElementById("qrGenScreen").classList.remove("hidden");
-        document.getElementById("qrWalletId").innerText = currentWalletId;
-        document.getElementById("qrCanvas").getContext('2d').clearRect(0, 0, document.getElementById("qrCanvas").width, document.getElementById("qrCanvas").height);
-    }
+function startScanner(){
+  html5QrCode = new Html5Qrcode("scanner");
+  Html5Qrcode.getCameras().then(cams => {
+    cameras = cams;
+    if(cameras.length) {
+      currentCameraIndex = cameras.findIndex(c => c.label.toLowerCase().includes('back'));
+      if(currentCameraIndex === -1) currentCameraIndex = 0;
+      startCamera(cameras[currentCameraIndex].id);
+    } else log("No camera found","error");
+  }).catch(err => log("Camera error: "+err,"error"));
+}
 
-    async function showQRScan() {
-        hideAll();
-        document.getElementById("qrScanScreen").classList.remove("hidden");
-
-        await stopScanner();
-
-        try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                let cameraId = cameras[0].id;
-
-                const backCamera = cameras.find(camera =>
-                    camera.facingMode === 'environment' ||
-                    (camera.label && camera.label.toLowerCase().includes('back')) ||
-                    (camera.label && camera.label.toLowerCase().includes('rear'))
-                );
-
-                if (backCamera) {
-                    cameraId = backCamera.id;
-                }
-
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader");
-                }
-
-                await html5QrCode.start(
-                    cameraId,
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
-                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-                    },
-                    (decodedText, decodedResult) => {
-                        onScanSuccess(decodedText);
-                    },
-                    (errorMessage) => {}
-                );
-            } else {
-                Swal.fire("Error", "Geen camera's gevonden.", "error");
-            }
-        } catch(e) {
-            Swal.fire("Error", "Kan de camera niet starten. Zorg dat je de juiste rechten hebt.", "error");
-        }
-    }
-
-    async function stopScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            await html5QrCode.stop();
-        }
-    }
-
-    async function onScanSuccess(decodedText) {
-        stopScanner();
-        showWalletActions();
-
-        const prefix = 'hyperrushcoins://pay?';
-        if (!decodedText.startsWith(prefix)) {
-            return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
-        }
-
-        const queryString = decodedText.substring(prefix.length);
-        const params = new URLSearchParams(queryString);
-
-        const recipientUsername = params.get('to');
-        const amount = parseFloat(params.get('amount'));
-        const recipientId = params.get('id');
-
-        if (!recipientUsername || isNaN(amount) || amount <= 0 || !recipientId) {
-            return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
-        }
-
-        Swal.fire({
-            title: `Betaal ${formatNumber(amount)} coins?`,
-            html: `Aan: <b>${recipientUsername}</b><br><small>ID: ${recipientId}</small>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Ja, betaal',
-            cancelButtonText: 'Annuleren'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                transfer(recipientUsername, amount, "QR Payment");
-            }
-        });
-    }
-
-    function backToWelcome() {
-        hideAll();
-        document.getElementById("welcomeUser").innerText = '';
-        document.getElementById("walletIdDisplay").innerText = '';
-        document.getElementById("walletInfo").innerText = '';
-        document.getElementById("welcomeScreen").classList.remove("hidden");
-        stopScanner();
-        clearInterval(pollIntervalId);
-    }
-
-    function hideAll() {
-        document.querySelectorAll(".card").forEach(c => c.classList.add("hidden"));
-    }
-
-    function formatNumber(n) {
-        return Number(n).toLocaleString("en-US");
-    }
-
-    function setButtonLoading(button, isLoading) {
-        button.disabled = isLoading;
-        if (isLoading) {
-            button.classList.add("is-loading");
-        } else {
-            button.classList.remove("is-loading");
-        }
-    }
-
-    async function createAccount() {
-        const button = document.getElementById("createButton");
-        const username = document.getElementById("newUsername").value;
-        const pw = document.getElementById("newPassword").value;
-        if (!username || !pw) return Swal.fire("Error", "Username and password required", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=createWallet&username=${encodeURIComponent(username)}&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `Wallet created for user <b>${data.username}</b> with ID <code>${data.id}</code>. Please save your ID!`, "success");
-                backToWelcome();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function login() {
-        const button = document.getElementById("loginButton");
-        const walletId = document.getElementById("walletId").value;
-        const pw = document.getElementById("walletPassword").value;
-        const rememberMe = document.getElementById("rememberMe").checked;
-
-        if (!walletId || !pw) return Swal.fire("Error", "Missing credentials", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(walletId)}&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                currentWalletId = data.id;
-                currentUsername = data.username;
-                currentPassword = pw;
-                currentBalance = data.balance;
-                if (rememberMe) {
-                    localStorage.setItem('hyperrush_wallet', JSON.stringify({ id: walletId, password: pw }));
-                } else {
-                    localStorage.removeItem('hyperrush_wallet');
-                }
-                hideAll();
-                document.getElementById("walletActions").classList.remove("hidden");
-                updateWalletInfo();
-                listTx();
-                startPolling();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    function logout() {
-        localStorage.removeItem('hyperrush_wallet');
-        currentWalletId = "";
-        currentUsername = "";
-        currentPassword = "";
-        currentBalance = 0;
-        document.getElementById('walletId').value = "";
-        document.getElementById('walletPassword').value = "";
-        document.getElementById('rememberMe').checked = false;
-        backToWelcome();
-        Swal.fire("Uitgelogd", "Je bent succesvol uitgelogd.", "success");
-    }
-
-    function updateWalletInfo() {
-        document.getElementById("welcomeUser").innerText = `Welkom, ${currentUsername}!`;
-        document.getElementById("walletIdDisplay").innerHTML = `Jouw Wallet ID: <b>${currentWalletId}</b>`;
-        document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)} coins`;
-    }
-
-    async function refreshBalance() {
-        const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(currentPassword)}`);
-        const data = await res.json();
-        if (!data.error) {
-            currentBalance = data.balance;
-            updateWalletInfo();
-        }
-        return currentBalance;
-    }
-
-    async function addCoins() {
-        const button = document.getElementById("addCoinsButton");
-        const amt = parseFloat(document.getElementById("addAmount").value);
-        if (isNaN(amt) || amt <= 0) return Swal.fire("Error", "Invalid amount", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `${formatNumber(amt)} coins added`, "success");
-                await refreshBalance();
-                listTx();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function transfer(toUsername, amount, memo) {
-        const button = document.getElementById("transferButton");
-        const fromId = currentWalletId;
-        const password = currentPassword;
-        
-        let targetUsername = toUsername;
-        let targetAmount = amount;
-        
-        if (!toUsername) {
-            targetUsername = document.getElementById("toUsername").value;
-            targetAmount = parseFloat(document.getElementById("transferAmount").value);
-            memo = document.getElementById("memo").value;
-        }
-
-        if (!targetUsername || isNaN(targetAmount) || targetAmount <= 0) return Swal.fire("Error", "Check fields", "error");
-
+function startCamera(cameraId){
+  html5QrCode.start(cameraId, {fps:10, qrbox:250}, async decodedText => {
+    html5QrCode.stop();
+    try {
+      const data = JSON.parse(decodedText);
+      const confirmPay = confirm(`Do you want to pay ${data.amount} to ${data.to}?`);
+      if(confirmPay){
+        const r = await fetch(`${BASE}/transfer?from=${encodeURIComponent(currentUser)}&to=${encodeURIComponent(data.to)}&amount=${data.amount}`);
+        if(!r.ok){ const txt=await r.text(); log(txt,"error"); return; }
         await refreshBalance();
-        if (targetAmount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
-        if (targetUsername.toLowerCase() === currentUsername.toLowerCase()) return Swal.fire("Error", "Cannot send to self", "error");
+        log(`Paid ${data.amount} to ${data.to}`,"success");
+      } else log("Payment cancelled","error");
+    } catch(e){ log("QR scan error: "+e,"error"); }
+  }, error => {});
+}
 
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(targetUsername)}&amount=${targetAmount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(password)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `Sent ${formatNumber(targetAmount)} to ${targetUsername}`, "success");
-                await refreshBalance();
-                listTx();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
+function switchCamera(){
+  if(cameras.length < 2) return;
+  currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+  html5QrCode.stop().then(() => startCamera(cameras[currentCameraIndex].id));
+}
 
-    async function changePassword() {
-        const button = document.getElementById("changePasswordButton");
-        const oldPw = document.getElementById("oldPassword").value;
-        const newPw = document.getElementById("newPassword").value;
-
-        if (!oldPw || !newPw) return Swal.fire("Error", "Fill in both passwords", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=changePassword&id=${encodeURIComponent(currentWalletId)}&oldPassword=${encodeURIComponent(oldPw)}&newPassword=${encodeURIComponent(newPw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", "Password changed successfully.", "success");
-                currentPassword = newPw;
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function deleteAccount() {
-        const confirmation = await Swal.fire({
-            title: 'Weet je het zeker?',
-            text: "Je kunt dit niet ongedaan maken!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ja, verwijder mijn wallet'
-        });
-
-        if (confirmation.isConfirmed) {
-            const { value: password } = await Swal.fire({
-                title: 'Voer je wachtwoord in ter bevestiging',
-                input: 'password',
-                inputPlaceholder: 'Voer je wachtwoord in',
-                showCancelButton: true,
-                confirmButtonText: 'Verwijderen',
-                cancelButtonText: 'Annuleren',
-                inputValidator: (value) => {
-                    if (!value) {
-                        return 'Je moet je wachtwoord invoeren!';
-                    }
-                }
-            });
-
-            if (password) {
-                const button = document.querySelector("#walletActions .admin-reset");
-                setButtonLoading(button, true);
-                try {
-                    const res = await fetch(`${API_URL}?action=deleteWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(password)}`);
-                    const data = await res.json();
-                    if (data.error) {
-                        Swal.fire("Error", data.error, "error");
-                    } else {
-                        Swal.fire("Succes", "Je wallet is verwijderd.", "success");
-                        logout();
-                    }
-                } finally {
-                    setButtonLoading(button, false);
-                }
-            }
-        }
-    }
-
-    function generateQR() {
-        const amount = document.getElementById("qrAmount").value;
-        if (!currentUsername || !amount || parseFloat(amount) <= 0) {
-            return Swal.fire("Error", "Vul een geldig bedrag in.", "error");
-        }
-
-        const qrCanvas = document.getElementById("qrCanvas");
-        const data = `hyperrushcoins://pay?to=${currentUsername}&id=${currentWalletId}&amount=${amount}`;
-
-        new QRious({
-            element: qrCanvas,
-            value: data,
-            size: 200,
-            background: 'white',
-            foreground: '#007bff'
-        });
-    }
-
-    async function listTx() {
-        const button = document.getElementById("listTxButton");
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=listTx&limit=50&username=${encodeURIComponent(currentUsername)}`);
-            const data = await res.json();
-
-            let logText = `--- Transactions for ${currentUsername} ---\n\n`;
-            data.forEach(tx => {
-              const direction = tx.from.toLowerCase() === currentUsername.toLowerCase() ? "OUT" : "IN";
-              const otherParty = direction === "OUT" ? tx.to : tx.from;
-              const sign = direction === "OUT" ? "-" : "+";
-
-              logText += `${new Date(tx.ts).toLocaleString()}\n`;
-              logText += `  ${sign}${formatNumber(tx.amount)} from ${otherParty}\n`;
-              logText += `  Memo: ${tx.memo || "-"}\n\n`;
-            });
-            document.getElementById("txLog").innerText = logText;
-            lastTxIds = data.map(tx => tx.ts);
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function adminReset() {
-        const button = document.getElementById("adminResetButton");
-        const pw = document.getElementById("adminPassword").value;
-        if (!pw) return Swal.fire("Error", "Enter admin password", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=adminReset&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Reset Complete", "All data wiped", "success");
-                hideAll();
-                document.getElementById("welcomeScreen").classList.remove("hidden");
-                document.getElementById("txLog").innerText = "";
-                document.getElementById("walletInfo").innerText = "";
-                lastTxIds = [];
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    function updateMaxTransfer() {
-        const maxVal = currentBalance;
-        const transferInput = document.getElementById("transferAmount");
-        transferInput.setAttribute("max", maxVal);
-        transferInput.setAttribute("placeholder", `Max: ${formatNumber(maxVal)}`);
-    }
-
-    function startPolling() {
-        if (pollIntervalId) {
-            clearInterval(pollIntervalId);
-        }
-        pollIntervalId = setInterval(pollIncoming, 5000);
-    }
-
-    async function pollIncoming() {
-        if (!currentUsername) return;
-        const res = await fetch(`${API_URL}?action=listTx&limit=10&username=${encodeURIComponent(currentUsername)}`);
-        const data = await res.json();
-
-        const newIncoming = data.filter(tx =>
-            tx.to.toLowerCase() === currentUsername.toLowerCase() &&
-            !lastTxIds.includes(tx.ts)
-        );
-
-        newIncoming.forEach(tx => {
-            Swal.fire({
-                icon: "success",
-                title: "Coins Received",
-                html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || "-"}`,
-                timer: 5000,
-                showConfirmButton: false,
-                timerProgressBar: true
-            });
-            refreshBalance();
-        });
-
-        lastTxIds = data.map(tx => tx.ts);
-    }
+async function deleteAccount() {
+  if(!currentUser) return;
+  if(!confirm(`Delete wallet ${currentUser}? This cannot be undone!`)) return;
+  try {
+    const r = await fetch(`${BASE}/deleteAccount?user=${encodeURIComponent(currentUser)}`);
+    if(!r.ok){ const txt=await r.text(); log(txt,"error"); return; }
+    log(`Deleted wallet ${currentUser}`,"success");
+    currentUser = null;
+    document.getElementById("walletDiv").style.display="none";
+    document.getElementById("loginDiv").style.display="block";
+  } catch(e){ log("Delete error: "+e,"error"); }
+}
 </script>
 </body>
 </html>
