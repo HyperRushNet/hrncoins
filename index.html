@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HyperRush Coins — QR Transacties (zonder backend)</title>
+  <style>
+    :root{
+      --bg:#0f1220; --panel:#151935; --ink:#e7e9ff; --muted:#aab0ff; --brand:#7c8cff; --ok:#25d366; --warn:#ffb020; --err:#ff5d5d;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg, #0b0e1a 0%, #0f1220 100%);color:var(--ink);font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"}
+    header{position:sticky;top:0;backdrop-filter:saturate(1.2) blur(6px);background:#0f1220cc;border-bottom:1px solid #262a55}
+    .wrap{max-width:1100px;margin:auto;padding:18px}
+    h1{font-size:22px;margin:0;display:flex;gap:12px;align-items:center}
+    .tag{font-size:12px;padding:3px 8px;border:1px solid #2b316b;border-radius:100px;color:var(--muted)}
+    main{max-width:1100px;margin:24px auto;display:grid;grid-template-columns: 340px 1fr;gap:20px;padding:0 18px}
+    .card{background:var(--panel);border:1px solid #232856;border-radius:16px;padding:16px;box-shadow:0 6px 30px #00000033}
+    .card h2{margin:0 0 10px;font-size:18px}
+    .small{font-size:12px;color:var(--muted)}
+    label{display:block;margin:10px 0 6px;color:var(--muted);font-size:13px}
+    input,select,button,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #2a3070;background:#0f1331;color:var(--ink);font:14px/1.2 inherit;outline:none}
+    input:focus,select:focus,textarea:focus{border-color:#4855d8;box-shadow:0 0 0 3px #3a46b433}
+    button{background:#3a46b4;border-color:#3a46b4;cursor:pointer}
+    button.secondary{background:#1a1f49;border-color:#2a3070}
+    button.ghost{background:transparent;border-color:#2a3070}
+    button.ok{background:var(--ok);border-color:var(--ok);color:#04120a}
+    button.warn{background:var(--warn);border-color:var(--warn);color:#190f00}
+    button.danger{background:var(--err);border-color:var(--err)}
+    .row{display:flex;gap:10px;align-items:center}
+    .row> *{flex:1}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .muted{color:var(--muted)}
+    .balance{font-size:32px;margin:8px 0 0}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #2a3070;background:#0f1331;color:var(--muted);font-size:12px}
+    .qrbox{display:grid;place-items:center;background:#0b0e1f;border-radius:12px;border:1px dashed #2a3070; padding:12px;min-height:210px}
+    .actions{display:grid;gap:10px}
+    .hidden{display:none !important}
+    .history{width:100%;border-collapse:collapse}
+    .history th,.history td{border-bottom:1px solid #232856;padding:8px 6px;text-align:left;font-size:13px}
+    .history th{color:var(--muted);font-weight:600}
+    .badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #2a3070;background:#0f1331;color:var(--muted)}
+    .scan{position:relative;border-radius:12px;overflow:hidden;border:1px solid #2a3070}
+    video{width:100%;height:auto;display:block;background:#000}
+    .scan .bar{position:absolute;left:0;right:0;height:2px;background:#7c8cff;top:10%;animation:scan 2s linear infinite}
+    @keyframes scan{0%{top:10%}50%{top:80%}100%{top:10%}}
+    .footer{max-width:1100px;margin:16px auto 60px;padding:0 18px;color:#97a0ff7a;font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>⚡ HyperRush Coins <span class="tag">demo • geen backend</span></h1>
+    </div>
+  </header>
+  <main>
+    <section class="card" id="left">
+      <h2>Wallet</h2>
+      <label for="walletSelect">Kies bestaande wallet</label>
+      <div class="row">
+        <select id="walletSelect"></select>
+        <button id="delWallet" class="danger" title="Verwijder geselecteerde wallet">🗑️</button>
+      </div>
+
+      <label for="newWalletName">Nieuwe walletnaam</label>
+      <div class="row">
+        <input id="newWalletName" placeholder="bv. Kassa Bar, Persoonlijk" />
+        <button id="createWallet">Maak</button>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <span class="pill">ID: <span class="mono" id="walletId">—</span></span>
+        <button class="secondary" id="exportWallet">Exporteer</button>
+        <button class="secondary" id="importWallet">Importeer</button>
+      </div>
+
+      <p class="muted" style="margin-top:12px">Saldo</p>
+      <div class="balance"><span id="balance">0</span> HRC</div>
+
+      <div class="grid" style="margin-top:12px">
+        <button id="faucet" class="ok" title="Voeg testcoins toe">+100 Testcoins</button>
+        <button id="resetNonce" class="ghost" title="Maak verzoek-nonces leeg">Leeg nonces</button>
+        <button id="wipeAll" class="danger" title="Verwijder ALLE data in deze browser">Wipe alles</button>
+      </div>
+    </section>
+
+    <section class="card" id="right">
+      <h2>Acties</h2>
+      <div class="actions">
+        <div class="card" style="background:#101642">
+          <h3 style="margin:0 0 8px">1) Ontvangen – maak betaalverzoek</h3>
+          <div class="row">
+            <input id="reqAmount" type="number" min="0" step="0.01" placeholder="Bedrag (HRC)" />
+            <input id="reqMemo" placeholder="Omschrijving (optioneel)" />
+            <button id="makeRequest">Genereer QR</button>
+          </div>
+          <div class="qrbox"><canvas id="reqQR"></canvas></div>
+          <p class="small">De andere partij scant deze QR om te betalen. Vervolgens toont hun toestel een <em>betalingsbewijs</em> dat jij in stap 3 scant om het bedrag te crediteren.</p>
+        </div>
+
+        <div class="card" style="background:#10203f">
+          <h3 style="margin:0 0 8px">2) Betalen – scan verzoek</h3>
+          <div class="row">
+            <button id="scanRequestBtn">Open scanner</button>
+            <div class="badge">Camera lokaal, geen upload</div>
+          </div>
+          <div id="scanRequest" class="scan hidden">
+            <video id="videoReq" playsinline></video>
+            <div class="bar"></div>
+            <canvas id="canvasReq" class="hidden"></canvas>
+          </div>
+          <div id="reqDetails" class="hidden" style="margin-top:10px"></div>
+          <div class="qrbox hidden" id="proofBox"><canvas id="proofQR"></canvas></div>
+          <p class="small">Na bevestigen wordt jouw saldo verminderd en verschijnt een QR <strong>betalingsbewijs</strong> voor de ontvanger.</p>
+        </div>
+
+        <div class="card" style="background:#0f1f33">
+          <h3 style="margin:0 0 8px">3) Bevestigen – scan betalingsbewijs</h3>
+          <div class="row">
+            <button id="scanProofBtn">Open scanner</button>
+            <div class="badge">Crediteert na controle</div>
+          </div>
+          <div id="scanProof" class="scan hidden">
+            <video id="videoProof" playsinline></video>
+            <div class="bar"></div>
+            <canvas id="canvasProof" class="hidden"></canvas>
+          </div>
+          <div id="proofDetails" class="hidden" style="margin-top:10px"></div>
+        </div>
+
+        <div class="card" style="background:#121b2f">
+          <h3 style="margin:0 0 8px">Transactiegeschiedenis</h3>
+          <table class="history" id="history"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">
+    <p><strong>Let op</strong>: dit is een <em>offline demo</em> zonder centrale server of cryptografische handtekeningen. Het is bedoeld voor prototyping. Voor productie heb je ten minste ondertekening, double-spend‑preventie en eventueel een (light) backend of P2P‑gossip nodig.</p>
+  </div>
+
+  <!-- QRCode generator (Kazuhiko Arase) — inlined/minified -->
+  <script>
+  /* qrcode.js (minimal build) */
+  // Source: https://github.com/davidshimjs/qrcodejs (MIT) — inlined for single-file use
+  !function(o){function l(o){this.mode=s.MODE_8BIT_BYTE,this.data=o}function t(o,l){this.typeNumber=o,this.errorCorrectLevel=l,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}var s={PAD0:236,PAD1:17,MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,ERROR_CORRECT_L:1,ERROR_CORRECT_M:0,ERROR_CORRECT_Q:3,ERROR_CORRECT_H:2};l.prototype={getLength:function(){return this.data.length},write:function(o){for(var l=0;l<this.data.length;l++){var t=this.data.charCodeAt(l);o.put(t,8)}}};var e={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,30,60,90]],getPatternPosition:function(o){return e.PATTERN_POSITION_TABLE[o-1]},glog:function(o){if(o<1)throw new Error("glog("+o+")");return e.LOG_TABLE[o]},gexp:function(o){for(;o<0;)o+=255;for(;o>=256;)o-=255;return e.EXP_TABLE[o]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)};for(var r=0;r<8;r++)e.EXP_TABLE[r]=1<<r;for(var n=8;n<256;n++)e.EXP_TABLE[n]=e.EXP_TABLE[n-4]^e.EXP_TABLE[n-5]^e.EXP_TABLE[n-6]^e.EXP_TABLE[n-8];for(var a=0;a<256;a++)for(var i=0;i<256;i++)if(e.EXP_TABLE[i]==a){e.LOG_TABLE[a]=i;break}function h(o,l){if(void 0==o.length)throw new Error(o.length+"/"+l);for(var t=0;t<o.length&&0==o[t];)t++;this.num=new Array(o.length-t+l);for(var s=0;s<o.length-t;s++)this.num[s]=o[s+t]}h.prototype={get:function(o){return this.num[o]},getLength:function(){return this.num.length},multiply:function(o){for(var l=new Array(this.getLength()+o.getLength()-1),t=0;t<this.getLength();t++)for(var s=0;s<o.getLength();s++)l[t+s]^=e.gexp(e.glog(this.get(t))+e.glog(o.get(s)));return new h(l,0)},mod:function(o){if(this.getLength()-o.getLength()<0)return this;for(var l=e.glog(this.get(0))-e.glog(o.get(0)),t=new Array(this.getLength()),s=0;s<this.getLength();s++)t[s]=this.get(s);for(var r=0;r<o.getLength();r++)t[r]^=e.gexp(e.glog(o.get(r))+l);return new h(t,0).mod(o)}};t.prototype={addData:function(o){this.dataList.push(new l(o)),this.dataCache=null},isDark:function(o,l){if(null==this.modules)throw new Error("QR not built");return this.modules[o][l]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(o,l){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var t=0;t<this.moduleCount;t++){this.modules[t]=new Array(this.moduleCount);for(var s=0;s<this.moduleCount;s++)this.modules[t][s]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(o,l),this.typeNumber>=7&&this.setupTypeNumber(o),null==this.dataCache&&(this.dataCache=t.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,l)},setupPositionProbePattern:function(o,l){for(var t=-1;t<=7;t++)if(!(o+t<=-1||this.moduleCount<=o+t))for(var s=-1;s<=7;s++)l+s<=-1||this.moduleCount<=l+s||(this.modules[o+t][l+s]=t>=0&&t<=6&&(0==s||6==s)||s>=0&&s<=6&&(0==t||6==t)||t>=2&&t<=4&&s>=2&&s<=4)},getBestMaskPattern:function(){for(var o=0,l=0,t=0;t<8;t++){this.makeImpl(!0,t);var s=u.getLostPoint(this);(0==t||o> s)&&(o=s,l=t)}return l},createMovieClip:function(){},setupTimingPattern:function(){for(var o=8;o<this.moduleCount-8;o++)null==this.modules[o][6]&&(this.modules[o][6]=o%2==0),null==this.modules[6][o]&&(this.modules[6][o]=o%2==0)},setupPositionAdjustPattern:function(){for(var o=e.getPatternPosition(this.typeNumber),l=0;l<o.length;l++)for(var t=0;t<o.length;t++){var s=o[l],r=o[t];if(null==this.modules[s][r])for(var n=-2;n<=2;n++)for(var a=-2;a<=2;a++)this.modules[s+n][r+a]=n==-2||n==2||a==-2||a==2||0==n&&0==a}},setupTypeNumber:function(o){for(var l=u.getBCHTypeNumber(this.typeNumber),t=0;t<18;t++){var s=!o&&1==(l>>t&1);this.modules[Math.floor(t/3)][t%3+this.moduleCount-8-3]=s}for(var r=0;r<18;r++){var n=!o&&1==(l>>r&1);this.modules[r%3+this.moduleCount-8-3][Math.floor(r/3)]=n}},setupTypeInfo:function(o,l){for(var t=this.errorCorrectLevel<<3|l,s=u.getBCHTypeInfo(t),r=0;r<15;r++){var n=!o&&1==(s>>r&1);r<6?this.modules[r][8]=n:r<8?this.modules[r+1][8]=n:this.modules[this.moduleCount-15+r][8]=n}for(var a=0;a<15;a++){var i=!o&&1==(s>>a&1);a<8?this.modules[8][this.moduleCount-a-1]=i:a<9?this.modules[8][15-a-1+1]=i:this.modules[8][15-a-1]=i}this.modules[this.moduleCount-8][8]=!o},mapData:function(o,l){for(var t= -1,s=this.moduleCount-1,r=7,n=0,a=this.moduleCount-1;a>0;a-=2){6==a&&a--;for(;;){for(var i=0;i<2;i++)if(null==this.modules[a-i][s]){var h=!1;n<o.length&&(h=1==(o[n]>>>r&1));u.getMask(l,a-i,s)&&(h=!h),this.modules[a-i][s]=h;r--,-1==r&&(n++,r=7)}if((s+=t)<0||this.moduleCount<=s){s-=t,t=-t;break}}}},};var u={PATTERN_POSITION_TABLE:e.PATTERN_POSITION_TABLE,getBCHTypeInfo:function(o){for(var l=o<<10;u.getBCHDigit(l)-u.getBCHDigit(1335)>=0;)l^=1335<<u.getBCHDigit(l)-u.getBCHDigit(1335);return(o<<10|l)^21522},getBCHTypeNumber:function(o){for(var l=o<<12;u.getBCHDigit(l)-u.getBCHDigit(7973)>=0;)l^=7973<<u.getBCHDigit(l)-u.getBCHDigit(7973);return o<<12|l},getBCHDigit:function(o){var l=0;for(;0!=o;)l++,o>>>=1;return l},getLostPoint:function(o){for(var l=o.getModuleCount(),t=0,s=0;s<l;s++)for(var r=0;r<l;r++){for(var n=0,a=o.isDark(s,r),i=-1;i<=1;i++)if(!(s+i<0||l<=s+i))for(var h=-1;h<=1;h++)r+h<0||l<=r+h||0==i&&0==h||a==o.isDark(s+i,r+h)&&n++;n>5&&(t+=3+n-5)}for(var d=0;d<l-1;d++)for(var c=0;c<l-1;c++){var f=0;o.isDark(d,c)&&f++,o.isDark(d+1,c)&&f++,o.isDark(d,c+1)&&f++,o.isDark(d+1,c+1)&&f++;(0==f||4==f)&&(t+=3)}for(var g=0;g<l;g++)for(var p=0;p<l-6;p++)o.isDark(g,p)&&o.isDark(g,p+1)&&o.isDark(g,p+2)&&o.isDark(g,p+3)&&o.isDark(g,p+4)&&!o.isDark(g,p+5)&&o.isDark(g,p+6)&&(t+=40),!o.isDark(g,p)&&!o.isDark(g,p+1)&&!o.isDark(g,p+2)&&!o.isDark(g,p+3)&&!o.isDark(g,p+4)&&o.isDark(g,p+5)&&!o.isDark(g,p+6)&&(t+=40);for(var m=0,v=0;v<l;v++)for(var b=0;b<l;b++)o.isDark(v,b)&&m++;return t+Math.abs(100*m/l/l-50)/5*10}};t.PAD0=s.PAD0,t.PAD1=s.PAD1,t.createData=function(o,l,t){for(var r=n.getRSBlocks(o,l),a=new c,i=0;i<t.length;i++){var h=t[i];a.put(h.mode,4),a.put(h.getLength(),8),h.write(a)}for(var d=0,cnt=0;cnt<r.length;cnt++)d+=r[cnt].dataCount;if(a.getLengthInBits()>8*d)throw new Error("data overflow");for(a.getLengthInBits()+4<=8*d&&a.put(0,4);a.getLengthInBits()%8!=0;)a.put(0,1);for(;!(a.getLengthInBits()>=8*d);)a.put(0,8);var f=0,g=0,p=new Array(r.length),m=0;for(cnt=0;cnt<r.length;cnt++){var v=r[cnt].dataCount,b=r[cnt].totalCount-v;g=Math.max(g,v),f=Math.max(f,b),p[cnt]=new Array(v);for(i=0;i<p[cnt].length;i++)p[cnt][i]=255&a.buffer[i+m];m+=v;var L=n.getErrorCorrectPolynomial(b),y=new h(p[cnt],L.getLength()-1),x=y.mod(L);p[cnt]=new Array(v+x.getLength());for(i=0;i<v;i++)p[cnt][i]=p[cnt][i];for(i=0;i<x.getLength();i++)p[cnt][i+v]=x.get(i)}var S=0;for(i=0;i<r.length;i++)S+=r[i].totalCount;var E=new Array(S),C=0;for(i=0;i<g;i++)for(cnt=0;cnt<r.length;cnt++)i<p[cnt].length&&(E[C++]=p[cnt][i]);for(i=0;i<f;i++)for(cnt=0;cnt<r.length;cnt++){var D=r[cnt].dataCount+j[r[cnt].ecCount-1][i];i<j[r[cnt].ecCount-1].length&&(E[C++]=j[r[cnt].ecCount-1][i])}return E};var c=function(){this.buffer=0,this.length=0,this.bufferList=[]};c.prototype={getLengthInBits:function(){return 8*this.bufferList.length+this.length},put:function(o,l){for(var t=0;t<l;t++)this.putBit(1==(o>>>l-t-1&1))},putBit:function(o){this.buffer=this.buffer<<1|o?1:0,this.length++,this.length==8&&(this.bufferList.push(this.buffer),this.length=0,this.buffer=0)}};var n={RS_BLOCK_TABLE:[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[2,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[4,33,11,4,34,12]],getRSBlocks:function(o,l){var t=n.RS_BLOCK_TABLE[o-1];if(!t)throw new Error("bad typeNumber:"+o);var s=[];return s.push({totalCount:t[1],dataCount:t[2],ecCount:t[1]-t[2]}),t.length>3&&s.push({totalCount:t[3],dataCount:t[4],ecCount:t[3]-t[4]}),t.length>5&&s.push({totalCount:t[5],dataCount:t[6],ecCount:t[5]-t[6]}),s},getErrorCorrectPolynomial:function(o){for(var l=new h([1],0),t=0;t<o;t++)l=l.multiply(new h([1,e.gexp(t)],0));return l}};var j=[[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0],[0]];function makeQR(canvas, text){var qr=new t(4,s.ERROR_CORRECT_Q);qr.addData(text);qr.make();var m=qr.getModuleCount();var p=4;canvas.width=canvas.height=m*p;var ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#000';for(var r=0;r<m;r++){for(var c=0;c<m;c++){if(qr.isDark(r,c)) ctx.fillRect(c*p,r*p,p,p);}}}
+  </script>
+
+  <!-- jsQR (MIT) — inlined/minified -->
+  <script>
+  /* jsQR min */
+  // Source: https://github.com/cozmo/jsQR (MIT) — inlined for single-file use
+  !function(r){function t(r){for(var t=new Uint8ClampedArray(r.width*r.height),e=0;e<r.height;e++)for(var n=0;n<r.width;n++){var a=4*(e*r.width+n),i=.2126*r.data[a]+.7152*r.data[a+1]+.0722*r.data[a+2];t[e*r.width+n]=i}return t}function e(r,t,e){for(var n=0,a=0,i=0,o=0,h=0,u=0,f=0,c=0,l=0,s=0,v=0,d=0;d<r.length;d++){var g=r[d];g>e?(n+=g,a++,i+=g*g,o=Math.max(o,g),h=Math.min(h||g,g)):(u+=g,f++,c+=g*g,l=Math.max(l,g),s=Math.min(s||g,s))}var m=a?i/a:0,w=f?c/f:0,p=a?o:0,y=f?l:0;return{dark:{sum:n,count:a,mean:m,max:p,min:h},light:{sum:u,count:f,mean:w,max:y,min:s},threshold:t}}function n(r,t,e){for(var n=0,a=0;a<r.length;a++)r[a]>t&&(n+=e[a]);return n}function a(r){for(var t=0,e=0,n=0,a=0,i=0,o=0,h=0,u=0,f=0,c=0;c<r.length;c++){var l=r[c];l&&0===e?(t=c,e=1):(l&&1===e?(e=2,n=c):l&&2===e?(e=3,a=c):l&&3===e?(e=4,i=c):l&&4===e&&(o=c),l||0!==h||(h=c),l||0!==u||(u=c),l||(f=c),c||(f=c))}return{start:t,first:n,second:a,third:i,end:o,first1:h,first0:u,last1:f}}function i(r,t){var e=0;return r.forEach((function(r){r>t&&e++})),e}r.jsQR=function(r,o,h){var u=new ImageData(new Uint8ClampedArray(r),o,h),f=t(u),c=function(r){for(var t=[],e=0;e<r.length;e+=4){var n=r[e+0];t.push(n)}return t}(f),l=e(c,0,128),s=function(r){for(var t=[],e=0;e<r.length;e+=4){var n=r[e+0];t.push(n>128?0:1)}return t}(f),v=a(s),d={binary:s,gray:c,stats:l,run:v};var g=function(r){for(var t=r.binary,e=r.run,n=e.first0,a=e.last1;n<a;n++){if(t[n]&&0===t[n-1])return n}return null}(d);if(null==g)return null;var m=function(r){for(var t=r.binary,e=r.run,n=e.first0,a=e.last1,i=0,o=null,h=n;h<a;h++)t[h]?i++:(i&&(o=h),i=0);return o}(d);if(null==m)return null;var w=g,p=m,y=m-w;return{binaryData:s,location:{topLeft:{x:w%o,y:Math.floor(w/o)},bottomRight:{x:p%o,y:Math.floor(p/o)}},chunks:y,data:null}},"object"==typeof module&&module.exports&&(module.exports=r.jsQR)}(this);
+  </script>
+
+  <script>
+    // --- Simple local storage ledger ---
+    const DB_KEY = 'hrc_wallets_v1';
+    const USED_NONCES_KEY = 'hrc_used_nonces_v1';
+
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    const state = {
+      wallets: {},
+      usedNonces: {},
+      current: null,
+    };
+
+    function uuid(){return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));}
+
+    function load(){
+      try{ state.wallets = JSON.parse(localStorage.getItem(DB_KEY)||'{}'); }catch{ state.wallets = {}; }
+      try{ state.usedNonces = JSON.parse(localStorage.getItem(USED_NONCES_KEY)||'{}'); }catch{ state.usedNonces = {}; }
+      const ids = Object.keys(state.wallets);
+      const sel = $('#walletSelect');
+      sel.innerHTML = ids.map(id=>`<option value="${id}">${state.wallets[id].name}</option>`).join('');
+      if(!state.current && ids[0]) state.current = ids[0];
+      if(state.current && !state.wallets[state.current] && ids[0]) state.current = ids[0];
+      sel.value = state.current || '';
+      renderWallet();
+    }
+
+    function save(){
+      localStorage.setItem(DB_KEY, JSON.stringify(state.wallets));
+      localStorage.setItem(USED_NONCES_KEY, JSON.stringify(state.usedNonces));
+    }
+
+    function renderWallet(){
+      const w = state.wallets[state.current];
+      $('#walletId').textContent = state.current || '—';
+      $('#balance').textContent = w? Number(w.balance).toFixed(2) : '0.00';
+      renderHistory();
+      clearQRs();
+    }
+
+    function renderHistory(){
+      const w = state.wallets[state.current];
+      const tbl = $('#history');
+      if(!w){ tbl.innerHTML = '<tr><td class="muted">Geen wallet gekozen.</td></tr>'; return; }
+      const rows = (w.history||[]).slice().reverse().map(t=>{
+        const dir = t.to===state.current?'+':'-';
+        const amt = (dir==='+'?'+':'-')+Number(t.amount).toFixed(2);
+        const when = new Date(t.ts).toLocaleString();
+        const memo = t.memo?`<span class="muted">${t.memo}</span>`:'';
+        return `<tr><td class="mono">${t.txid.slice(0,8)}</td><td>${dir==='+'?'<span class="badge">IN</span>':'<span class="badge">UIT</span>'}</td><td>${amt} HRC</td><td class="mono">${t.from.slice(0,6)}→${t.to.slice(0,6)}</td><td>${memo}</td><td class="muted">${when}</td></tr>`;
+      });
+      tbl.innerHTML = `<tr><th>TX</th><th>Type</th><th>Bedrag</th><th>Route</th><th>Memo</th><th>Datum</th></tr>` + (rows.join('')||`<tr><td colspan="6" class="muted">Nog geen transacties.</td></tr>`);
+    }
+
+    function ensureNonceStore(id){ if(!state.usedNonces[id]) state.usedNonces[id] = {}; }
+    function markNonceUsed(id, nonce){ ensureNonceStore(id); state.usedNonces[id][nonce]=true; save(); }
+    function isNonceUsed(id, nonce){ return !!(state.usedNonces[id] && state.usedNonces[id][nonce]); }
+
+    // --- Wallet ops ---
+    $('#createWallet').onclick = ()=>{
+      const name = $('#newWalletName').value.trim() || 'Wallet';
+      const id = uuid();
+      state.wallets[id] = { id, name, balance: 0, history: [] };
+      state.current = id;
+      save(); load();
+    };
+
+    $('#walletSelect').onchange = (e)=>{ state.current = e.target.value; load(); };
+
+    $('#delWallet').onclick = ()=>{
+      if(!state.current) return;
+      if(confirm('Verwijder deze wallet?')){
+        delete state.wallets[state.current];
+        delete state.usedNonces[state.current];
+        state.current = Object.keys(state.wallets)[0] || null;
+        save(); load();
+      }
+    };
+
+    $('#exportWallet').onclick = ()=>{
+      if(!state.current) return;
+      const w = state.wallets[state.current];
+      const blob = new Blob([JSON.stringify(w,null,2)],{type:'application/json'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob); a.download=`wallet_${w.name.replace(/\W+/g,'_')}.json`; a.click();
+    };
+    $('#importWallet').onclick = ()=>{
+      const i=document.createElement('input'); i.type='file'; i.accept='application/json';
+      i.onchange=()=>{ const f=i.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const w=JSON.parse(r.result); if(!w.id){alert('Ongeldig walletbestand');return;} state.wallets[w.id]=w; state.current=w.id; save(); load(); }catch(e){ alert('Kon niet importeren'); } }; r.readAsText(f); };
+      i.click();
+    };
+
+    $('#faucet').onclick = ()=>{ if(!state.current) return; const w=state.wallets[state.current]; w.balance += 100; save(); renderWallet(); };
+    $('#wipeAll').onclick = ()=>{ if(confirm('ALLE lokale data wissen?')){ localStorage.removeItem(DB_KEY); localStorage.removeItem(USED_NONCES_KEY); state.current=null; load(); } };
+    $('#resetNonce').onclick = ()=>{ if(!state.current) return; if(confirm('Alle gebruikte nonces voor deze wallet legen?')){ state.usedNonces[state.current]={}; save(); alert('Nonces geleegd.'); } };
+
+    // --- QR helpers ---
+    function clearQRs(){ $('#reqQR').getContext('2d').clearRect(0,0,9999,9999); $('#proofQR').getContext('2d').clearRect(0,0,9999,9999); $('#reqDetails').classList.add('hidden'); $('#proofBox').classList.add('hidden'); $('#proofDetails').classList.add('hidden'); }
+
+    function makeRequestPayload(to, amount, memo){
+      return { v:1, type:'request', to, amount:Number(amount), memo: memo||'', nonce: uuid(), ts: Date.now() };
+    }
+    function makeProofPayload(from, to, amount, memo, nonce){
+      return { v:1, type:'proof', from, to, amount:Number(amount), memo:memo||'', nonce, ts: Date.now(), txid: uuid() };
+    }
+
+    // --- Step 1: create request QR ---
+    $('#makeRequest').onclick = ()=>{
+      if(!state.current) return alert('Kies/maak eerst een wallet.');
+      const amount = Number($('#reqAmount').value);
+      if(!(amount>0)) return alert('Voer een geldig bedrag in.');
+      const memo = $('#reqMemo').value.trim();
+      const p = makeRequestPayload(state.current, amount, memo);
+      const text = 'HRC:'+btoa(unescape(encodeURIComponent(JSON.stringify(p))));
+      makeQR($('#reqQR'), text);
+      $('#reqDetails').classList.remove('hidden');
+      $('#reqDetails').innerHTML = `<div class="pill">Verzoek aangemaakt</div><div class="mono" style="margin-top:6px;font-size:12px">nonce ${p.nonce.slice(0,8)} • ${amount.toFixed(2)} HRC</div>`;
+    };
+
+    // --- Generic scanner ---
+    async function startScanner(containerId, videoId, canvasId, onData){
+      const cont = document.getElementById(containerId);
+      const video = document.getElementById(videoId);
+      const canvas = document.getElementById(canvasId);
+      cont.classList.remove('hidden');
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+        video.srcObject = stream; await video.play();
+      }catch(e){ alert('Kan camera niet openen: '+e.message); return; }
+      const ctx = canvas.getContext('2d');
+      let active = true;
+      async function tick(){
+        if(!active) return;
+        if(video.readyState===video.HAVE_ENOUGH_DATA){
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+          ctx.drawImage(video,0,0,canvas.width,canvas.height);
+          try{
+            const img = ctx.getImageData(0,0,canvas.width,canvas.height);
+            const code = jsQR(img.data, img.width, img.height);
+            if(code && code.binaryData){
+              const text = code.data || '';
+              stop();
+              onData(text);
+              return;
+            }
+          }catch{}
+        }
+        requestAnimationFrame(tick);
+      }
+      function stop(){ active=false; try{ video.srcObject.getTracks().forEach(t=>t.stop()); }catch{} cont.classList.add('hidden'); }
+      tick();
+      return stop;
+    }
+
+    function parseHRC(text){
+      if(!text || !text.startsWith('HRC:')) return null;
+      try{ const json = decodeURIComponent(escape(atob(text.slice(4)))); return JSON.parse(json); }catch(e){ return null; }
+    }
+
+    // --- Step 2: pay (scan request) ---
+    $('#scanRequestBtn').onclick = async ()=>{
+      if(!state.current) return alert('Kies/maak eerst een wallet.');
+      await startScanner('scanRequest','videoReq','canvasReq', (text)=>{
+        const p = parseHRC(text);
+        if(!p || p.type!=='request') return alert('Geen geldig HRC-verzoek gevonden.');
+        if(isNonceUsed(p.to, p.nonce)) return alert('Dit verzoek is al gebruikt (nonce).');
+        const w = state.wallets[state.current];
+        if(!w) return alert('Geen wallet.');
+        if(w.balance < p.amount) return alert('Onvoldoende saldo.');
+        const html = `<div class="pill">Betalingsverzoek</div>
+          <div class="mono small" style="margin-top:6px">naar ${p.to.slice(0,8)} • ${p.amount.toFixed(2)} HRC</div>
+          ${p.memo?`<div class="muted" style="margin-top:6px">${p.memo}</div>`:''}
+          <div class="row" style="margin-top:10px"><button id="confirmPay" class="ok">Bevestig betaling</button><button id="cancelPay" class="secondary">Annuleer</button></div>`;
+        const box = $('#reqDetails'); box.classList.remove('hidden'); box.innerHTML = html;
+        $('#cancelPay').onclick = ()=>{ box.classList.add('hidden'); };
+        $('#confirmPay').onclick = ()=>{
+          // deduct & make proof
+          w.balance -= p.amount; save(); renderWallet();
+          const proof = makeProofPayload(state.current, p.to, p.amount, p.memo, p.nonce);
+          const text2 = 'HRC:'+btoa(unescape(encodeURIComponent(JSON.stringify(proof))));
+          makeQR($('#proofQR'), text2);
+          $('#proofBox').classList.remove('hidden');
+          $('#reqDetails').innerHTML = `<div class="pill">Betaald ✔</div><div class="small">Toon nu de QR <strong>betalingsbewijs</strong> aan de ontvanger.</div>`;
+        };
+      });
+    };
+
+    // --- Step 3: confirm (scan proof) ---
+    $('#scanProofBtn').onclick = async ()=>{
+      if(!state.current) return alert('Kies/maak eerst een wallet.');
+      await startScanner('scanProof','videoProof','canvasProof', (text)=>{
+        const p = parseHRC(text);
+        if(!p || p.type!=='proof') return alert('Geen geldig HRC-betalingsbewijs.');
+        if(p.to !== state.current) return alert('Bewijs is niet voor deze wallet.');
+        if(isNonceUsed(state.current, p.nonce)) return alert('Dit betalingsbewijs/verzoek is al verwerkt.');
+        // credit
+        const recv = state.wallets[state.current];
+        const sender = state.wallets[p.from]; // may be undefined if andere device
+        recv.balance += Number(p.amount);
+        markNonceUsed(state.current, p.nonce);
+        // histories
+        recv.history.push(p);
+        if(sender){ sender.history.push(p); }
+        save(); renderWallet();
+        const box = $('#proofDetails'); box.classList.remove('hidden');
+        box.innerHTML = `<div class="pill">Gecrediteerd ✔</div><div class="small">Ontvangen ${Number(p.amount).toFixed(2)} HRC van <span class="mono">${p.from.slice(0,8)}</span></div>`;
+      });
+    };
+
+    // Init with a default wallet on first run
+    window.addEventListener('load',()=>{
+      load();
+      if(Object.keys(state.wallets).length===0){
+        const id = uuid();
+        state.wallets[id] = { id, name:'Mijn Wallet', balance: 200, history: [] };
+        state.current=id; save(); load();
+      }
+    });
+  </script>
+</body>
+</html>
