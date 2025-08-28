@@ -1,192 +1,324 @@
-// server.js
+/**
+ * server.js
+ * Lichtgewicht, append-only log + snapshot, Map-indexed, /exists endpoint.
+ *
+ * Environment:
+ *   PORT (default 3000)
+ *   ADMIN_CODE (vervang het standaardwachtwoord!)
+ *   SNAPSHOT_OPS (optioneel, default 1000) -> maak snapshot na dit aantal ops
+ *
+ * Opschoning / schaaladviezen:
+ * - Stel SNAPSHOT_OPS lager in op lage load; hoger bij veel ops.
+ * - Monitor geheugengebruik: ~1M users met alleen naam+number kan groot worden op 512MB.
+ */
+
 const express = require("express");
-const fs = require("fs-extra");
+const fs = require("fs");
+const fsExtra = require("fs-extra");
+const path = require("path");
 const cors = require("cors");
+
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-const DB_FILE = "./database.json";
-
-// Admin code: zet via env var ADMIN_CODE. Default is insecure => verander.
 const ADMIN_CODE = process.env.ADMIN_CODE || "change_me_admin_code";
+const SNAPSHOT_OPS = parseInt(process.env.SNAPSHOT_OPS || "1000", 10);
 
-let db = { users: [] };
+const DATA_DIR = path.resolve(__dirname);
+const SNAPSHOT_FILE = path.join(DATA_DIR, "snapshot.json");
+const OPS_LOG_FILE = path.join(DATA_DIR, "ops.log");
 
-// ---------- Helpers ----------
-async function loadDB() {
-  try {
-    db = await fs.readJson(DB_FILE);
-    if (!db || !Array.isArray(db.users)) {
-      db = { users: [] };
+// In-memory map: key = username, value = { balance: Number, infinite?: true }
+const users = new Map();
+
+// Simple in-process queue to serialize write operations (append & snapshot)
+let writeQueue = Promise.resolve();
+let pendingOpsSinceSnapshot = 0;
+
+// Helper: enqueue a function that returns a promise
+function enqueueWrite(fn) {
+  writeQueue = writeQueue.then(fn).catch(err => {
+    console.error("Write queue error:", err);
+  });
+  return writeQueue;
+}
+
+// Append op to ops.log as newline-delimited JSON
+function appendOp(op) {
+  const line = JSON.stringify(op) + "\n";
+  return new Promise((resolve, reject) => {
+    fs.appendFile(OPS_LOG_FILE, line, "utf8", err => {
+      if (err) return reject(err);
+      pendingOpsSinceSnapshot++;
+      // trigger snapshot if threshold reached
+      if (pendingOpsSinceSnapshot >= SNAPSHOT_OPS) {
+        pendingOpsSinceSnapshot = 0;
+        // schedule snapshot (non-blocking in API path)
+        enqueueWrite(() => snapshotToFile()).catch(e => console.error("Snapshot error:", e));
+      }
+      resolve();
+    });
+  });
+}
+
+// Create a snapshot.json from current in-memory map (atomic replace)
+async function snapshotToFile() {
+  const tmp = SNAPSHOT_FILE + ".tmp";
+  const plain = { users: [] };
+  for (const [name, v] of users) {
+    // Don't include non-serializable fields
+    const entry = { name, balance: v.infinite ? 0 : v.balance };
+    if (v.infinite) entry.infinite = true;
+    plain.users.push(entry);
+  }
+  await fsExtra.writeJson(tmp, plain, { spaces: 2 });
+  // atomic rename
+  await fsExtra.move(tmp, SNAPSHOT_FILE, { overwrite: true });
+  // truncate ops.log (we can safely delete old ops)
+  await new Promise((resolve, reject) => fs.truncate(OPS_LOG_FILE, 0, err => err ? reject(err) : resolve()));
+  console.log("Snapshot written and ops.log truncated.");
+}
+
+// Load snapshot + replay ops log
+async function loadData() {
+  // ensure files exist
+  if (!fs.existsSync(SNAPSHOT_FILE)) {
+    await fsExtra.writeJson(SNAPSHOT_FILE, { users: [] });
+  }
+  if (!fs.existsSync(OPS_LOG_FILE)) {
+    fs.writeFileSync(OPS_LOG_FILE, "");
+  }
+
+  // load snapshot
+  const snapshot = await fsExtra.readJson(SNAPSHOT_FILE);
+  if (snapshot && Array.isArray(snapshot.users)) {
+    for (const u of snapshot.users) {
+      users.set(u.name, { balance: typeof u.balance === "number" ? u.balance : 0, infinite: !!u.infinite });
     }
-  } catch (err) {
-    // Geen database: maak een lege structuur
-    db = { users: [] };
   }
 
-  // Zorg dat Bank-wallet altijd bestaat en heeft infinite flag
-  if (!db.users.find(u => u.name === "Bank")) {
-    db.users.push({ name: "Bank", balance: 0, infinite: true });
-    await saveDB();
+  // replay ops.log (stream line by line for memory safety)
+  await new Promise((resolve, reject) => {
+    const rs = fs.createReadStream(OPS_LOG_FILE, { encoding: "utf8" });
+    let leftover = "";
+    rs.on("data", chunk => {
+      const lines = (leftover + chunk).split("\n");
+      leftover = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const op = JSON.parse(line);
+          applyOpInMemory(op, false); // don't append again
+        } catch (e) {
+          console.warn("Skipping malformed op line:", e);
+        }
+      }
+    });
+    rs.on("end", () => {
+      if (leftover.trim()) {
+        try {
+          const op = JSON.parse(leftover);
+          applyOpInMemory(op, false);
+        } catch (e) {
+          console.warn("Skipping malformed leftover op:", e);
+        }
+      }
+      resolve();
+    });
+    rs.on("error", reject);
+  });
+
+  // ensure Bank exists and is infinite
+  if (!users.has("Bank")) {
+    users.set("Bank", { balance: 0, infinite: true });
+    // persist creation
+    await enqueueWrite(() => appendOp({ op: "create", user: "Bank", infinite: true }));
   } else {
-    // Zorg dat Bank altijd infinite = true
-    const bank = db.users.find(u => u.name === "Bank");
-    bank.infinite = true;
-    if (typeof bank.balance !== "number") bank.balance = 0;
-    await saveDB();
+    const b = users.get("Bank");
+    b.infinite = true;
+  }
+
+  console.log(`Data loaded. Users in memory: ${users.size}`);
+}
+
+// Apply op to in-memory map; if persist=true it appends op to log
+async function applyOpInMemory(op, persist = true) {
+  const { type } = op;
+  if (type === "create") {
+    if (!users.has(op.user)) {
+      users.set(op.user, { balance: op.infinite ? 0 : 0, infinite: !!op.infinite });
+      if (persist) await appendOp(op);
+    }
+  } else if (type === "delete") {
+    if (op.user && users.has(op.user) && op.user !== "Bank") {
+      users.delete(op.user);
+      if (persist) await appendOp(op);
+    }
+  } else if (type === "set") {
+    // set absolute balance
+    if (users.has(op.user)) {
+      const u = users.get(op.user);
+      u.balance = Number(op.balance) || 0;
+      if (persist) await appendOp(op);
+    }
+  } else if (type === "inc") {
+    // increment balance by amount (positive or negative), respect Bank infinite
+    const u = users.get(op.user);
+    if (u) {
+      if (!u.infinite) {
+        u.balance = Number(u.balance || 0) + Number(op.amount);
+      } // if infinite, no change
+      if (persist) await appendOp(op);
+    }
+  } else if (type === "batch") {
+    // generic for future; do nothing now
   }
 }
 
-async function saveDB() {
-  // Kleine bescherming: nooit serializen van non-JSON waarden
-  // (we gebruiken alleen plain objects / numbers / booleans)
-  await fs.writeJson(DB_FILE, db, { spaces: 2 });
+// Existence check (fast)
+function existsInMemory(user) {
+  return users.has(user);
 }
 
-function findUser(name) {
-  if (!name) return null;
-  return db.users.find(u => u.name === name);
+// Get balance (fast)
+function getBalance(user) {
+  const u = users.get(user);
+  if (!u) return null;
+  if (u.infinite) return "infinite";
+  return u.balance;
 }
 
-function isBank(user) {
-  return user && user.name === "Bank";
-}
-
-// ---------- Init ----------
-loadDB().catch(err => {
-  console.error("Fout bij laden DB:", err);
-});
-
-// ---------- Middleware ----------
-app.use(cors()); // allow all origins (licht & eenvoudig)
-app.disable("x-powered-by"); // iets minder fingerprintable
-
-// ---------- Endpoints ----------
-
-// Ping
-app.get("/ping", (req, res) => {
-  res.send("pong");
-});
-
-// Maak wallet aan
-app.get("/createWallet", async (req, res) => {
-  const user = req.query.user;
-  if (!user) return res.status(400).send("User parameter required");
-
-  if (findUser(user)) {
-    return res.status(400).send("User already exists");
+// Server init
+(async () => {
+  try {
+    await loadData();
+  } catch (e) {
+    console.error("Failed to load data:", e);
+    process.exit(1);
   }
 
-  const wallet = { name: user, balance: 0 };
-  db.users.push(wallet);
-  await saveDB();
-  res.json(wallet);
-});
+  // middleware
+  app.use(cors());
+  app.disable("x-powered-by");
 
-// Lijst van wallets (light, handig bij debug)
-app.get("/list", (req, res) => {
-  // Verberg bank.infinite flag niet nodig, maar we sturen alles
-  res.json(db.users);
-});
+  // lightweight endpoints
 
-// Saldo bekijken
-app.get("/balance", (req, res) => {
-  const user = req.query.user;
-  if (!user) return res.status(400).send("User parameter required");
+  app.get("/ping", (req, res) => res.send("pong"));
 
-  const wallet = findUser(user);
-  if (!wallet) return res.status(404).send("User not found");
+  app.get("/health", (req, res) => {
+    res.json({ ok: true, users: users.size });
+  });
 
-  // Indien bank: toon 'infinite' als true
-  if (wallet.infinite) return res.json({ balance: "infinite" });
+  // exists endpoint (O(1))
+  app.get("/exists", (req, res) => {
+    const user = req.query.user;
+    if (!user) return res.status(400).send("User parameter required");
+    res.json({ exists: existsInMemory(user) });
+  });
 
-  res.json({ balance: wallet.balance });
-});
+  app.get("/createWallet", async (req, res) => {
+    const user = req.query.user;
+    if (!user) return res.status(400).send("User parameter required");
+    if (users.has(user)) return res.status(400).send("User already exists");
 
-// Transfer
-app.get("/transfer", async (req, res) => {
-  const fromName = req.query.from;
-  const toName = req.query.to;
-  const amount = Number(req.query.amount);
+    // add to memory & append op (serialized)
+    await enqueueWrite(async () => {
+      users.set(user, { balance: 0 });
+      await appendOp({ type: "create", user });
+    });
 
-  if (!fromName || !toName || isNaN(amount) || amount <= 0) {
-    return res.status(400).send("Invalid parameters");
-  }
+    res.json({ name: user, balance: 0 });
+  });
 
-  const sender = findUser(fromName);
-  const receiver = findUser(toName);
+  app.get("/balance", (req, res) => {
+    const user = req.query.user;
+    if (!user) return res.status(400).send("User parameter required");
+    const bal = getBalance(user);
+    if (bal === null) return res.status(404).send("User not found");
+    res.json({ balance: bal });
+  });
 
-  if (!sender || !receiver) return res.status(404).send("User not found");
+  app.get("/deposit", async (req, res) => {
+    const user = req.query.user;
+    const amount = Number(req.query.amount);
+    if (!user || isNaN(amount) || amount <= 0) return res.status(400).send("Invalid parameters");
+    if (!users.has(user)) return res.status(404).send("User not found");
 
-  // Check saldo (Bank heeft oneindig geld)
-  if (!sender.infinite && sender.balance < amount) {
-    return res.status(400).send("Insufficient funds");
-  }
+    await enqueueWrite(async () => {
+      // deposit is inc on user (from Bank)
+      await applyOpInMemory({ type: "inc", user, amount }, true);
+    });
 
-  if (!sender.infinite) sender.balance -= amount;
-  receiver.balance += amount;
+    res.json({ user, newBalance: getBalance(user) });
+  });
 
-  await saveDB();
-  res.json({ from: { name: sender.name, balance: sender.infinite ? "infinite" : sender.balance }, to: { name: receiver.name, balance: receiver.balance } });
-});
+  app.get("/transfer", async (req, res) => {
+    const from = req.query.from;
+    const to = req.query.to;
+    const amount = Number(req.query.amount);
+    if (!from || !to || isNaN(amount) || amount <= 0) return res.status(400).send("Invalid parameters");
+    const sender = users.get(from);
+    const receiver = users.get(to);
+    if (!sender || !receiver) return res.status(404).send("User not found");
 
-// Deposit via Bank (mag ook gebruikt worden in plaats van transfer)
-app.get("/deposit", async (req, res) => {
-  const user = req.query.user;
-  const amount = Number(req.query.amount);
+    if (!sender.infinite && sender.balance < amount) return res.status(400).send("Insufficient funds");
 
-  if (!user || isNaN(amount) || amount <= 0) {
-    return res.status(400).send("Invalid parameters");
-  }
+    await enqueueWrite(async () => {
+      if (!sender.infinite) await applyOpInMemory({ type: "inc", user: from, amount: -amount }, true);
+      await applyOpInMemory({ type: "inc", user: to, amount: amount }, true);
+    });
 
-  const wallet = findUser(user);
-  if (!wallet) return res.status(404).send("User not found");
+    res.json({
+      from: { name: from, balance: sender.infinite ? "infinite" : getBalance(from) },
+      to: { name: to, balance: getBalance(to) }
+    });
+  });
 
-  wallet.balance += amount;
-  await saveDB();
-  res.json({ user: wallet.name, newBalance: wallet.balance });
-});
+  app.get("/deleteAccount", async (req, res) => {
+    const user = req.query.user;
+    if (!user) return res.status(400).send("User parameter required");
+    if (user === "Bank") return res.status(400).send("Cannot delete Bank account");
+    if (!users.has(user)) return res.status(404).send("User not found");
 
-// Verwijder je eigen account
-// Voor veiligheid: je mag je account verwijderen, maar niet de Bank.
-// Gebruik: /deleteAccount?user=Alice
-app.get("/deleteAccount", async (req, res) => {
-  const user = req.query.user;
-  if (!user) return res.status(400).send("User parameter required");
-  if (user === "Bank") return res.status(400).send("Cannot delete Bank account");
+    await enqueueWrite(async () => {
+      users.delete(user);
+      await appendOp({ type: "delete", user });
+    });
 
-  const idx = db.users.findIndex(u => u.name === user);
-  if (idx === -1) return res.status(404).send("User not found");
+    res.send(`User ${user} deleted`);
+  });
 
-  db.users.splice(idx, 1);
-  await saveDB();
-  res.send(`User ${user} deleted`);
-});
+  app.get("/deleteAll", async (req, res) => {
+    const code = req.query.code;
+    if (!code) return res.status(400).send("Admin code required");
+    if (code !== ADMIN_CODE) return res.status(403).send("Invalid admin code");
 
-// Admin: verwijder alle accounts (behalve Bank) — vereist admin code
-// Gebruik: /deleteAll?code=YOUR_ADMIN_CODE
-app.get("/deleteAll", async (req, res) => {
-  const code = req.query.code;
-  if (!code) return res.status(400).send("Admin code required");
+    await enqueueWrite(async () => {
+      // remove all except Bank
+      for (const k of Array.from(users.keys())) {
+        if (k !== "Bank") users.delete(k);
+      }
+      await appendOp({ type: "deleteAll", by: "admin" });
+      // snapshot immediately to clear log growth
+      await snapshotToFile();
+    });
 
-  if (code !== ADMIN_CODE) {
-    return res.status(403).send("Invalid admin code");
-  }
+    res.send("All user accounts deleted (Bank preserved)");
+  });
 
-  // Bewaar alleen de Bank-account
-  const bank = db.users.find(u => u.name === "Bank") || { name: "Bank", balance: 0, infinite: true };
-  db.users = [bank];
-  await saveDB();
-  res.send("All user accounts deleted (Bank preserved)");
-});
+  // graceful shutdown: flush pending writes
+  process.on("SIGINT", async () => {
+    console.log("SIGINT received — flushing snapshot...");
+    try {
+      await writeQueue;
+      await snapshotToFile();
+    } catch (e) {
+      console.error("Error on shutdown:", e);
+    }
+    process.exit(0);
+  });
 
-// Kleine health endpoint met minimale footprint
-app.get("/health", (req, res) => {
-  res.json({ ok: true, users: db.users.length });
-});
-
-// Start
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Admin code (set ADMIN_CODE env var to change): ${ADMIN_CODE}`);
-});
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Admin code (set ADMIN_CODE env var to change): ${ADMIN_CODE}`);
+  });
+})();
