@@ -7,3 +7,6 @@ services:
     startCommand: "npm start"
     autoDeploy: true
     healthCheckPath: /ping
+    envVars:
+      - key: DATA_DIR
+        value: /tmp
