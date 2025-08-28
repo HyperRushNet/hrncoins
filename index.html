@@ -369,10 +369,16 @@
             const cameras = await Html5Qrcode.getCameras();
             if (cameras && cameras.length) {
                 let cameraId = cameras[0].id; // Fallback to first camera
-                // Zoek de achtercamera ("environment")
-                const rearCamera = cameras.find(camera => camera.facingMode === 'environment');
-                if (rearCamera) {
-                    cameraId = rearCamera.id;
+                
+                // Zoek de meest waarschijnlijke achtercamera
+                const backCamera = cameras.find(camera => 
+                    camera.facingMode === 'environment' || 
+                    (camera.label && camera.label.toLowerCase().includes('back')) ||
+                    (camera.label && camera.label.toLowerCase().includes('rear'))
+                );
+
+                if (backCamera) {
+                    cameraId = backCamera.id;
                 }
                 
                 if (!html5QrCode) {
