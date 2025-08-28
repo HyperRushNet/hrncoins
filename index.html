@@ -12,6 +12,7 @@ button { cursor:pointer; }
 #log { background:#fff; border:1px solid #ccc; padding:.5em; height:200px; overflow:auto; margin-top:1em; }
 .success { color:green; } .error { color:red; }
 #qrCode, #scanner { text-align:center; margin:1em 0; }
+.toast { position: fixed; top: 1em; right: 1em; background: #333; color: #fff; padding: 0.5em 1em; border-radius: 5px; opacity: 0.9; margin-bottom: 0.5em; font-size: 0.9em; z-index: 1000; }
 </style>
 </head>
 <body>
@@ -62,6 +63,14 @@ function log(msg,type="") {
   l.scrollTop = l.scrollHeight;
 }
 
+function showToast(msg){
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(()=>{ document.body.removeChild(toast); }, 2000);
+}
+
 async function login() {
   const user = document.getElementById("username").value.trim();
   if(!user) { log("Enter username","error"); return; }
@@ -73,6 +82,7 @@ async function login() {
       showWallet();
       await refreshBalance();
       log(`Logged in as ${user}`, "success");
+      showToast(`Logged in as ${user}`);
       startScanner();
     } else {
       log("Wallet does not exist, create it first","error");
@@ -91,6 +101,7 @@ async function createWallet() {
     showWallet();
     document.getElementById("balance").textContent = data.balance;
     log(`Wallet created for ${data.name}`,"success");
+    showToast(`Wallet created for ${data.name}`);
     startScanner();
   } catch(e){ log("Error creating wallet: "+e,"error"); }
 }
@@ -108,6 +119,7 @@ async function refreshBalance() {
     if(!r.ok){ log("Failed to get balance","error"); return; }
     const data = await r.json();
     document.getElementById("balance").textContent = data.balance;
+    showToast(`Balance: ${data.balance}`);
   } catch(e){ log("Error fetching balance: "+e,"error"); }
 }
 
@@ -119,6 +131,7 @@ async function add100() {
     const data = await r.json();
     document.getElementById("balance").textContent = data.newBalance;
     log(`Added 100 HRNCoins to ${currentUser}`,"success");
+    showToast(`Added 100 HRNCoins`);
   } catch(e){ log("Add 100 error: "+e,"error"); }
 }
 
@@ -129,12 +142,13 @@ function generateQR() {
   document.getElementById("qrCode").innerHTML = '';
   new QRCode(document.getElementById("qrCode"), {text: qrData, width: 200, height: 200});
   log(`QR for ${amount} to ${currentUser} generated`,"success");
+  alert(`QR for ${amount} to ${currentUser} created!`);
 
-  // Auto-refresh balance every 5s for 12 times
+  // Auto-refresh balance every 5s for 12 times (1 min)
   let checks = 0;
   const interval = setInterval(async () => {
     if(checks >= 12){ clearInterval(interval); return; }
-    await refreshBalance();
+    await refreshBalance(); //zelfde als bij login
     checks++;
   }, 5000);
 }
@@ -162,6 +176,7 @@ function startCamera(cameraId){
         if(!r.ok){ const txt=await r.text(); log(txt,"error"); return; }
         await refreshBalance();
         log(`Paid ${data.amount} to ${data.to}`,"success");
+        showToast(`Paid ${data.amount} to ${data.to}`);
       } else log("Payment cancelled","error");
     } catch(e){ log("QR scan error: "+e,"error"); }
   }, error => {});
