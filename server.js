@@ -14,13 +14,20 @@ async function loadDB() {
     console.log("Geen database gevonden, nieuwe maken...");
     await fs.writeJson(DB_FILE, db);
   }
+
+  // Zorg dat Bank-wallet altijd bestaat
+  if (!db.users.find(u => u.name === "Bank")) {
+    db.users.push({ name: "Bank", balance: Infinity });
+    await saveDB();
+  }
 }
-loadDB();
 
 // 📌 Database opslaan
 async function saveDB() {
   await fs.writeJson(DB_FILE, db, { spaces: 2 });
 }
+
+loadDB();
 
 // ✅ Ping endpoint
 app.get("/ping", (req, res) => {
@@ -65,13 +72,39 @@ app.get("/transfer", async (req, res) => {
   const receiver = db.users.find(u => u.name === to);
 
   if (!sender || !receiver) return res.status(404).send("User not found");
-  if (sender.balance < amt) return res.status(400).send("Insufficient funds");
 
-  sender.balance -= amt;
+  if (sender.name !== "Bank" && sender.balance < amt) {
+    return res.status(400).send("Insufficient funds");
+  }
+
+  // Bank heeft oneindig geld → saldo blijft Infinity
+  if (sender.name !== "Bank") {
+    sender.balance -= amt;
+  }
+
   receiver.balance += amt;
   await saveDB();
 
   res.json({ from: sender, to: receiver });
+});
+
+// ✅ Geld toevoegen via Bank (deposit)
+app.get("/deposit", async (req, res) => {
+  const { user, amount } = req.query;
+  const amt = Number(amount);
+
+  if (!user || isNaN(amt) || amt <= 0) {
+    return res.status(400).send("Invalid parameters");
+  }
+
+  const wallet = db.users.find(u => u.name === user);
+  if (!wallet) return res.status(404).send("User not found");
+
+  // Geld komt uit de Bank (oneindig saldo)
+  wallet.balance += amt;
+  await saveDB();
+
+  res.json({ user: wallet.name, newBalance: wallet.balance });
 });
 
 // 🚀 Server starten
