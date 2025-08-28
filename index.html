@@ -152,7 +152,7 @@ function generateQR() {
   let checks = 0;
   const interval = setInterval(async () => {
     if(checks >= 12){ clearInterval(interval); return; }
-    await refreshBalance();
+    await refreshBalance(); //zelfde als bij login
     checks++;
   }, 5000);
 }
@@ -164,7 +164,10 @@ function startScanner(){
     if(cameras.length) {
       currentCameraIndex = cameras.findIndex(c => c.label.toLowerCase().includes('back'));
       if(currentCameraIndex === -1) currentCameraIndex = 0;
-      startCamera(cameras[currentCameraIndex].id);
+      // Vraag toestemming expliciet
+      navigator.mediaDevices.getUserMedia({ video: { deviceId: cameras[currentCameraIndex].id } })
+      .then(() => startCamera(cameras[currentCameraIndex].id))
+      .catch(err => log("Camera permission denied: "+err,"error"));
     } else log("No camera found","error");
   }).catch(err => log("Camera error: "+err,"error"));
 }
