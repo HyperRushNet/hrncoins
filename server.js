@@ -22,6 +22,9 @@ const OPS_LOG_FILE = path.join(DATA_DIR, "ops.log");
 // In-memory map: key=username, value={ balance: BigInt, infinite?: true, lastOp: timestamp }
 const users = new Map();
 
+// In-memory variable to track the last transaction. Does not persist across server restarts.
+let lastTransaction = null;
+
 // Queue for disk writes
 let writeQueue = Promise.resolve();
 let pendingOps = [];
@@ -109,18 +112,20 @@ async function loadData() {
 
 function createApp() {
   const app = express();
-  app.use(cors()); // basis
+  app.use(cors());
   app.use(compression());
   app.disable("x-powered-by");
 
   app.get("/ping", (req, res) => res.send("pong"));
   app.get("/health", (req,res) => res.json({ ok:true, users: users.size }));
 
+  // Endpoint to check for wallet existence
   app.get("/exists", (req,res) => {
     const user = req.query.user;
     res.json({ exists: users.has(user) });
   });
 
+  // Endpoint to create a new wallet
   app.get("/createWallet", (req,res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
@@ -129,6 +134,7 @@ function createApp() {
     res.json({ name:user, balance:"0" });
   });
 
+  // Endpoint to get wallet balance
   app.get("/balance", (req,res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
@@ -137,6 +143,7 @@ function createApp() {
     res.json({ balance: u.infinite ? "infinite" : u.balance.toString() });
   });
 
+  // Endpoint to deposit HRNCoins (e.g., from an admin)
   app.get("/deposit", (req,res) => {
     const user = req.query.user;
     const amt = req.query.amount;
@@ -146,21 +153,39 @@ function createApp() {
     res.json({ user, newBalance: users.get(user).infinite ? "infinite" : users.get(user).balance.toString() });
   });
 
+  // Main transfer endpoint (used for QR code payments)
   app.get("/transfer", (req,res) => {
     const { from, to } = req.query;
     const amt = req.query.amount;
-    if (!from || !to || !amt) return res.status(400).send("Invalid");
+    if (!from || !to || !amt) return res.status(400).send("Invalid request parameters");
     const s = users.get(from), r = users.get(to);
-    if (!s || !r) return res.status(404).send("User not found");
+    if (!s || !r) return res.status(404).send("One or more users not found");
     if (!s.infinite && s.balance < BigInt(amt)) return res.status(400).send("Insufficient funds");
+
+    // Apply operations
     if (!s.infinite) applyOp({ type:"inc", user:from, amount: (-BigInt(amt)).toString() });
     applyOp({ type:"inc", user:to, amount: amt.toString() });
+
+    // Update the last transaction variable
+    lastTransaction = {
+      from,
+      to,
+      amount: amt,
+      timestamp: new Date().toISOString()
+    };
+    
     res.json({
       from: { name:from, balance: s.infinite?"infinite":s.balance.toString() },
       to: { name:to, balance: r.balance.toString() }
     });
   });
 
+  // New endpoint to get the last successful transaction
+  app.get("/lastTransaction", (req, res) => {
+      res.json(lastTransaction);
+  });
+
+  // Endpoint to delete a specific user account
   app.get("/deleteAccount", (req,res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
@@ -170,6 +195,7 @@ function createApp() {
     res.send(`Deleted ${user}`);
   });
 
+  // Admin endpoint to delete all user accounts except 'Bank'
   app.get("/deleteAll", (req,res) => {
     const code = req.query.code;
     if (!code) return res.status(400).send("Admin code required");
