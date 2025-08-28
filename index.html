@@ -452,33 +452,34 @@
 
     function onScanSuccess(decodedText) {
         stopScanner();
-        let recipientId, amount;
-        try {
-            const url = new URL(decodedText);
-            if (url.protocol === 'hyperrushcoins:' && url.pathname === '//pay') {
-                recipientId = url.searchParams.get('to');
-                amount = parseFloat(url.searchParams.get('amount'));
-            } else {
-                return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
-            }
-        } catch (e) {
-            return Swal.fire("Error", "Kon QR-code niet parsen.", "error");
+        
+        const prefix = 'hyperrushcoins://pay?';
+        if (!decodedText.startsWith(prefix)) {
+            return Swal.fire("Error", "Ongeldige QR-code voor betaling. De code moet door de app zijn gegenereerd.", "error");
+        }
+        
+        const queryString = decodedText.substring(prefix.length);
+        const params = new URLSearchParams(queryString);
+        
+        const recipientId = params.get('to');
+        const amount = parseFloat(params.get('amount'));
+
+        if (!recipientId || isNaN(amount) || amount <= 0) {
+            return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
         }
 
-        if (recipientId && !isNaN(amount) && amount > 0) {
-            Swal.fire({
-                title: `Betaal ${formatNumber(amount)} coins?`,
-                html: `Aan: <b>${recipientId}</b>`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ja, betaal',
-                cancelButtonText: 'Annuleren'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    transfer(recipientId, amount);
-                }
-            });
-        }
+        Swal.fire({
+            title: `Betaal ${formatNumber(amount)} coins?`,
+            html: `Aan: <b>${recipientId}</b>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ja, betaal',
+            cancelButtonText: 'Annuleren'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                transfer(recipientId, amount);
+            }
+        });
     }
 
     function backToWelcome() {
