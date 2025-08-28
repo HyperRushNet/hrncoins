@@ -37,11 +37,16 @@ function enqueueWrite(op) {
 
 function flushOps() {
   const opsToWrite = pendingOps.splice(0, pendingOps.length);
-  writeQueue = writeQueue.then(() => {
-    const data = opsToWrite.map(op => JSON.stringify(op)).join("\n") + "\n";
-    return fs.promises.appendFile(OPS_LOG_FILE, data, "utf8")
-      .then(() => { if (pendingOps.length >= SNAPSHOT_OPS) scheduleSnapshot(); });
-  }).catch(err => console.error("Write queue error:", err));
+  writeQueue = writeQueue
+    .then(() => {
+      const data = opsToWrite.map((op) => JSON.stringify(op)).join("\n") + "\n";
+      return fs.promises
+        .appendFile(OPS_LOG_FILE, data, "utf8")
+        .then(() => {
+          if (pendingOps.length >= SNAPSHOT_OPS) scheduleSnapshot();
+        });
+    })
+    .catch((err) => console.error("Write queue error:", err));
   return writeQueue;
 }
 
@@ -60,15 +65,21 @@ async function snapshotToFile() {
 }
 
 function scheduleSnapshot() {
-  setImmediate(snapshotToFile).catch(e => console.error(e));
+  setImmediate(snapshotToFile).catch((e) => console.error(e));
 }
 
 function applyOp(op, persist = true) {
   const { type } = op;
   if (type === "create") {
-    if (!users.has(op.user)) users.set(op.user, { balance: BigInt(0), infinite: !!op.infinite, lastOp: Date.now() });
+    if (!users.has(op.user))
+      users.set(op.user, {
+        balance: BigInt(0),
+        infinite: !!op.infinite,
+        lastOp: Date.now(),
+      });
   } else if (type === "delete") {
-    if (op.user && users.has(op.user) && op.user !== "Bank") users.delete(op.user);
+    if (op.user && users.has(op.user) && op.user !== "Bank")
+      users.delete(op.user);
   } else if (type === "inc") {
     const u = users.get(op.user);
     if (!u) return;
@@ -85,22 +96,27 @@ function applyOp(op, persist = true) {
 }
 
 async function loadData() {
-  if (!fs.existsSync(SNAPSHOT_FILE)) await fsExtra.writeJson(SNAPSHOT_FILE, { users: [] });
+  if (!fs.existsSync(SNAPSHOT_FILE))
+    await fsExtra.writeJson(SNAPSHOT_FILE, { users: [] });
   if (!fs.existsSync(OPS_LOG_FILE)) fs.writeFileSync(OPS_LOG_FILE, "");
 
   const snapshot = await fsExtra.readJson(SNAPSHOT_FILE);
   if (snapshot?.users) {
-    snapshot.users.forEach(u => users.set(u.name, {
-      balance: BigInt(u.balance || "0"),
-      infinite: !!u.infinite,
-      lastOp: Date.now()
-    }));
+    snapshot.users.forEach((u) =>
+      users.set(u.name, {
+        balance: BigInt(u.balance || "0"),
+        infinite: !!u.infinite,
+        lastOp: Date.now(),
+      })
+    );
   }
 
   const lines = fs.readFileSync(OPS_LOG_FILE, "utf8").split("\n");
   for (const line of lines) {
     if (!line.trim()) continue;
-    try { applyOp(JSON.parse(line), false); } catch(e) {}
+    try {
+      applyOp(JSON.parse(line), false);
+    } catch (e) {}
   }
 
   if (!users.has("Bank")) {
@@ -118,25 +134,25 @@ function createApp() {
   app.disable("x-powered-by");
 
   app.get("/ping", (req, res) => res.send("pong"));
-  app.get("/health", (req,res) => res.json({ ok:true, users: users.size }));
+  app.get("/health", (req, res) => res.json({ ok: true, users: users.size }));
 
   // Endpoint to check for wallet existence
-  app.get("/exists", (req,res) => {
+  app.get("/exists", (req, res) => {
     const user = req.query.user;
     res.json({ exists: users.has(user) });
   });
 
   // Endpoint to create a new wallet
-  app.get("/createWallet", (req,res) => {
+  app.get("/createWallet", (req, res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
     if (users.has(user)) return res.status(400).send("Exists");
-    applyOp({ type:"create", user });
-    res.json({ name:user, balance:"0" });
+    applyOp({ type: "create", user });
+    res.json({ name: user, balance: "0" });
   });
 
   // Endpoint to get wallet balance
-  app.get("/balance", (req,res) => {
+  app.get("/balance", (req, res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
     const u = users.get(user);
@@ -145,63 +161,70 @@ function createApp() {
   });
 
   // Endpoint to deposit HRNCoins (e.g., from an admin)
-  app.get("/deposit", (req,res) => {
+  app.get("/deposit", (req, res) => {
     const user = req.query.user;
     const amt = req.query.amount;
     if (!user || !amt) return res.status(400).send("Invalid");
     if (!users.has(user)) return res.status(404).send("User not found");
-    applyOp({ type:"inc", user, amount: amt.toString() });
-    res.json({ user, newBalance: users.get(user).infinite ? "infinite" : users.get(user).balance.toString() });
+    applyOp({ type: "inc", user, amount: amt.toString() });
+    res.json({
+      user,
+      newBalance: users.get(user).infinite ? "infinite" : users.get(user).balance.toString(),
+    });
   });
 
-  // Main transfer endpoint (used for QR code payments)
-  app.get("/transfer", (req,res) => {
+  // Main transfer endpoint (used for ID-based payments)
+  app.get("/transfer", (req, res) => {
     const { from, to } = req.query;
     const amt = req.query.amount;
     if (!from || !to || !amt) return res.status(400).send("Invalid request parameters");
-    const s = users.get(from), r = users.get(to);
+    const s = users.get(from),
+      r = users.get(to);
     if (!s || !r) return res.status(404).send("One or more users not found");
-    if (!s.infinite && s.balance < BigInt(amt)) return res.status(400).send("Insufficient funds");
+    if (!s.infinite && s.balance < BigInt(amt))
+      return res.status(400).send("Insufficient funds");
 
     // Apply operations
-    if (!s.infinite) applyOp({ type:"inc", user:from, amount: (-BigInt(amt)).toString() });
-    applyOp({ type:"inc", user:to, amount: amt.toString() });
+    if (!s.infinite)
+      applyOp({ type: "inc", user: from, amount: (-BigInt(amt)).toString() });
+    applyOp({ type: "inc", user: to, amount: amt.toString() });
 
     // Update the last transaction variable
     lastTransaction = {
       from,
       to,
       amount: amt,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     res.json({
-      from: { name:from, balance: s.infinite?"infinite":s.balance.toString() },
-      to: { name:to, balance: r.balance.toString() }
+      from: { name: from, balance: s.infinite ? "infinite" : s.balance.toString() },
+      to: { name: to, balance: r.balance.toString() },
     });
   });
 
   // New endpoint to get the last successful transaction
   app.get("/lastTransaction", (req, res) => {
-      res.json(lastTransaction);
+    res.json(lastTransaction);
   });
 
   // Endpoint to delete a specific user account
-  app.get("/deleteAccount", (req,res) => {
+  app.get("/deleteAccount", (req, res) => {
     const user = req.query.user;
     if (!user) return res.status(400).send("User required");
-    if (user==="Bank") return res.status(400).send("Cannot delete Bank");
+    if (user === "Bank") return res.status(400).send("Cannot delete Bank");
     if (!users.has(user)) return res.status(404).send("User not found");
-    applyOp({ type:"delete", user });
+    applyOp({ type: "delete", user });
     res.send(`Deleted ${user}`);
   });
 
   // Admin endpoint to delete all user accounts except 'Bank'
-  app.get("/deleteAll", (req,res) => {
+  app.get("/deleteAll", (req, res) => {
     const code = req.query.code;
     if (!code) return res.status(400).send("Admin code required");
-    if (code!==ADMIN_CODE) return res.status(403).send("Invalid code");
-    for (const k of Array.from(users.keys())) if(k!=="Bank") applyOp({type:"delete",user:k});
+    if (code !== ADMIN_CODE) return res.status(403).send("Invalid code");
+    for (const k of Array.from(users.keys()))
+      if (k !== "Bank") applyOp({ type: "delete", user: k });
     scheduleSnapshot();
     res.send("All user accounts deleted (Bank preserved)");
   });
@@ -218,22 +241,27 @@ function createApp() {
   });
 
   // fallback 404
-  app.use((req,res) => {
+  app.use((req, res) => {
     res.status(404).json({ error: "Not found" });
   });
 
   return app;
 }
 
-(async()=>{
+(async () => {
   await loadData();
   const app = createApp();
-  app.listen(PORT, ()=>console.log(`Server listening on ${PORT}, Admin: ${ADMIN_CODE}`));
+  app.listen(PORT, () => console.log(`Server listening on ${PORT}, Admin: ${ADMIN_CODE}`));
 })();
 
 // Graceful shutdown
-process.on("SIGINT", async ()=>{
+process.on("SIGINT", async () => {
   console.log("SIGINT: flushing snapshot...");
-  try { await writeQueue; await snapshotToFile(); } catch(e){console.error(e);}
+  try {
+    await writeQueue;
+    await snapshotToFile();
+  } catch (e) {
+    console.error(e);
+  }
   process.exit(0);
 });
