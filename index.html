@@ -155,7 +155,7 @@ async function refreshBalance(){
 // --- Add Coins ---
 async function addCoins(){
   const amount = parseFloat(document.getElementById("addAmount").value);
-  if(!amount) return Swal.fire('Error','Please enter an amount','error');
+  if(isNaN(amount) || amount <= 0) return Swal.fire('Error','Please enter a valid number','error');
   const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amount}&password=${encodeURIComponent(currentPassword)}`);
   const data = await res.json();
   if(data.error){ Swal.fire('Error', data.error,'error'); return; }
@@ -169,7 +169,7 @@ async function transfer(){
   const to = document.getElementById("to").value;
   const amount = parseFloat(document.getElementById("transferAmount").value);
   const memo = document.getElementById("memo").value;
-  if(!to || !amount) return Swal.fire('Error','Please enter recipient and amount','error');
+  if(!to || isNaN(amount) || amount <= 0) return Swal.fire('Error','Please enter valid recipient and amount','error');
   
   await refreshBalance(); // live balance check
 
