@@ -172,6 +172,10 @@
             background-color: #a0a0a0;
             cursor: not-allowed;
         }
+        
+        button.admin-reset {
+            background-color: var(--danger);
+        }
 
         .loading-spinner {
             display: none;
@@ -226,6 +230,7 @@
         <div class="section-title">Welcome</div>
         <button onclick="showCreate()">Create New Wallet</button>
         <button onclick="showLogin()">Login to Wallet</button>
+        <button onclick="showAdmin()">Admin Reset</button>
     </div>
     <div class="card hidden" id="createScreen">
         <div class="section-title">Create Wallet</div>
@@ -263,7 +268,8 @@
     <div class="card hidden" id="adminScreen">
         <div class="section-title">Admin Reset</div>
         <input id="adminPassword" type="password" placeholder="Admin Password">
-        <button id="adminResetButton" onclick="adminReset()" style="background-color:var(--danger);"><span>Reset All</span><div class="loading-spinner"></div></button>
+        <button id="adminResetButton" onclick="adminReset()" class="admin-reset"><span>Reset All</span><div class="loading-spinner"></div></button>
+        <button onclick="backToWelcome()">Back</button>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -305,6 +311,11 @@
     function showLogin() {
         hideAll();
         document.getElementById("loginScreen").classList.remove("hidden");
+    }
+    
+    function showAdmin() {
+        hideAll();
+        document.getElementById("adminScreen").classList.remove("hidden");
     }
 
     function backToWelcome() {
