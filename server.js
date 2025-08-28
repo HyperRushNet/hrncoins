@@ -251,7 +251,9 @@ function createApp() {
 (async () => {
   await loadData();
   const app = createApp();
-  app.listen(PORT, () => console.log(`Server listening on ${PORT}, Admin: ${ADMIN_CODE}`));
+  app.listen(PORT, () =>
+    console.log(`Server listening on ${PORT}, Admin: ${ADMIN_CODE}`)
+  );
 })();
 
 // Graceful shutdown
