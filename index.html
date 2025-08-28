@@ -19,8 +19,8 @@
       }
 
       body {
-        font-family: Inter, system-ui, Segoe UI, Roboto, "Helvetica Neue",
-          Arial, sans-serif;
+        font-family: Inter, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial,
+          sans-serif;
         margin: 0;
         background: var(--bg);
         color: #111;
@@ -87,6 +87,11 @@
       button.ghost {
         background: transparent;
         border: 1px solid #e6e9ee;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
 
       .muted {
@@ -183,6 +188,11 @@
             <div class="balance" id="balance">0</div>
           </div>
         </div>
+        <div style="margin-top: 0.6rem; display: flex">
+          <button id="btnRefreshBalance" class="ghost">
+            Refresh Balance
+          </button>
+        </div>
 
         <div style="margin-top: 1rem; display: flex; gap: 0.5rem">
           <button id="btnAdd100" class="primary">+100 HRNCoins</button>
@@ -199,7 +209,7 @@
         <div class="row-inline">
           <div>
             <label for="recipientId">ID van de ontvanger</label>
-            <input id="recipientId" placeholder="bijv. rode-schaap-22" />
+            <input id="recipientId" placeholder="bijv. jan123" />
           </div>
         </div>
         <div class="row-inline" style="margin-top: 0.6rem">
@@ -226,7 +236,9 @@
       </section>
 
       <div class="card" style="margin-top: 1rem">
-        <div style="display: flex; justify-content: space-between; align-items: center">
+        <div
+          style="display: flex; justify-content: space-between; align-items: center"
+        >
           <div class="muted">Logs</div>
           <div class="muted">API: <span id="apiStatus">idle</span></div>
         </div>
@@ -245,6 +257,7 @@
       const retryOptions = { retries: 3, backoff: 500 };
       let state = { user: null, balance: 0 };
       let lastServerTransaction = null;
+      let isRefreshingBalance = false;
 
       const $ = (id) => document.getElementById(id);
 
@@ -303,6 +316,11 @@
 
       async function syncBalance() {
         if (!state.user) return;
+        const refreshBtn = $("btnRefreshBalance");
+        isRefreshingBalance = true;
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Refreshing...";
+
         $("apiStatus").textContent = "syncing...";
         try {
           const res = await fetchWithRetries(
@@ -316,6 +334,12 @@
         } catch (err) {
           $("apiStatus").textContent = "error";
           log("Sync error: " + err, "error");
+        } finally {
+          isRefreshingBalance = false;
+          refreshBtn.textContent = "Refresh Balance";
+          setTimeout(() => {
+            refreshBtn.disabled = false;
+          }, 5000);
         }
       }
 
@@ -381,6 +405,7 @@
           $("balance").textContent = state.balance;
           toast("+100 geslaagd");
           log("Deposited 100");
+          await syncBalance();
         } catch (err) {
           log("Deposit error: " + err);
           toast("Deposit mislukt");
@@ -424,9 +449,7 @@
         }
 
         if (
-          !confirm(
-            `Bevestig: betaal ${amount} HRNCoins aan ${to}?`
-          )
+          !confirm(`Bevestig: betaal ${amount} HRNCoins aan ${to}?`)
         ) {
           log("Betaling geannuleerd");
           return;
@@ -481,6 +504,7 @@
         $("btnDelete").addEventListener("click", doDelete);
         $("btnLogout").addEventListener("click", doLogout);
         $("btnSend").addEventListener("click", doTransfer);
+        $("btnRefreshBalance").addEventListener("click", syncBalance);
         $("btnForget").addEventListener("click", () => {
           forgetLocal();
           toast("Lokale staat verwijderd");
