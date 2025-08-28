@@ -28,6 +28,8 @@ button { cursor:pointer; }
   <h2 id="walletName">Wallet: </h2>
   <p>Balance: <span id="balance">0</span></p>
 
+  <button onclick="add100()">Add 100 HRNCoins</button>
+
   <h3>Request Payment via QR</h3>
   <input id="requestAmount" placeholder="Amount" type="number"/>
   <button onclick="generateQR()">Generate QR</button>
@@ -109,6 +111,17 @@ async function refreshBalance() {
   } catch(e){ log("Error fetching balance: "+e,"error"); }
 }
 
+async function add100() {
+  if(!currentUser) return;
+  try {
+    const r = await fetch(`${BASE}/deposit?user=${encodeURIComponent(currentUser)}&amount=100`);
+    if(!r.ok){ const txt=await r.text(); log(txt,"error"); return; }
+    const data = await r.json();
+    document.getElementById("balance").textContent = data.newBalance;
+    log(`Added 100 HRNCoins to ${currentUser}`,"success");
+  } catch(e){ log("Add 100 error: "+e,"error"); }
+}
+
 function generateQR() {
   const amount = document.getElementById("requestAmount").value;
   if(!amount){ log("Enter valid amount","error"); return; }
@@ -116,6 +129,14 @@ function generateQR() {
   document.getElementById("qrCode").innerHTML = '';
   new QRCode(document.getElementById("qrCode"), {text: qrData, width: 200, height: 200});
   log(`QR for ${amount} to ${currentUser} generated`,"success");
+
+  // Auto-refresh balance every 5s for 12 times
+  let checks = 0;
+  const interval = setInterval(async () => {
+    if(checks >= 12){ clearInterval(interval); return; }
+    await refreshBalance();
+    checks++;
+  }, 5000);
 }
 
 function startScanner(){
