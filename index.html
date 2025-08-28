@@ -50,130 +50,6 @@
         @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
         pre { background: #e9ecef; color: var(--text-light); padding: 1rem; border: 1px solid #ced4da; max-height: 300px; overflow-y: auto; font-size: 0.9rem; line-height: 1.4; }
         .hidden { display: none; }
-    </style>
-</head>
-<body>
-<header>
-    <h1>HyperRush Coins</h1>
-</header>
-<div class="container">
-    <div class="card" id="welcomeScreen">
-        <div class="section-title">Welcome</div>
-        <button onclick="showCreate()">Create New Wallet</button>
-        <button onclick="showLogin()">Login to Wallet</button>
-        <button onclick="showAdmin()">Admin Reset</button>
-    </div>
-    <div class="card hidden" id="createScreen">
-        <div class="section-title">Create Wallet</div>
-        <input id="newUsername" type="text" placeholder="Choose a username">
-        <input id="newPassword" type="password" placeholder="Enter password">
-        <button id="createButton" onclick="createAccount()"><span>Create</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button>
-    </div>
-    <div class="card hidden" id="loginScreen">
-        <div class="section-title">Login</div>
-        <input id="userId" placeholder="Username or Wallet ID">
-        <input id="walletPassword" type="password" placeholder="Password">
-        <label><input type="checkbox" id="rememberMe"> Onthoud mij</label>
-        <button id="loginButton" onclick="login()"><span>Login</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button>
-    </div>
-    <div class="card hidden" id="walletActions">
-        <div class="section-title">Wallet</div>
-        <div id="walletIdDisplay"></div>
-        <div id="walletInfo"></div>
-        <hr>
-        <div class="section-title">Add Coins</div>
-        <input id="addAmount" type="number" placeholder="Amount">
-        <button id="addCoinsButton" onclick="addCoins()"><span>Add Coins</span><div class="loading-spinner"></div></button>
-        <div class="section-title">Transfer Coins</div>
-        <input id="to" placeholder="Recipient Username">
-        <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
-        <input id="memo" placeholder="Memo (optional)">
-        <button id="transferButton" onclick="transfer()"><span>Send</span><div class="loading-spinner"></div></button>
-        <div class="section-title">QR Code Payments</div>
-        <button onclick="showQRGen()">Create QR Code</button>
-        <button onclick="showQRScan()">Scan QR Code</button>
-        <div class="section-title">Change Password</div>
-        <input id="oldPassword" type="password" placeholder="Current password">
-        <input id="newPassword" type="password" placeholder="New password">
-        <button id="changePasswordButton" onclick="changePassword()"><span>Change Password</span><div class="loading-spinner"></div></button>
-        <div class="section-title">History</div>
-        <button id="listTxButton" onclick="listTx()"><span>Refresh</span><div class="loading-spinner"></div></button>
-        <pre id="txLog"></pre>
-        <hr>
-        <button onclick="logout()">Uitloggen</button>
-    </div>
-    <div class="card hidden" id="qrGenScreen">
-        <div class="section-title">Create QR Code</div>
-        <input id="qrAmount" type="number" placeholder="Amount to request">
-        <button onclick="generateQR()">Generate QR</button>
-        <div class="qr-placeholder"><canvas id="qrCanvas"></canvas></div>
-        <button onclick="showWalletActions()">Back</button>
-    </div>
-    <div class="card hidden" id="qrScanScreen">
-        <div class="section-title">Scan QR Code</div>
-        <p>Richt de camera op de QR-code.</p>
-        <div id="reader"></div>
-        <button onclick="stopScanner()">Stop Scanner</button>
-        <button onclick="showWalletActions()">Back</button>
-    </div>
-    <div class="card hidden" id="adminScreen">
-        <div class="section-title">Admin Reset</div>
-        <input id="adminPassword" type="password" placeholder="Admin Password">
-        <button id="adminResetButton" onclick="adminReset()" class="admin-reset"><span>Reset All</span><div class="loading-spinner"></div></button>
-        <button onclick="backToWelcome()">Back</button><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>HyperRush Coins</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <style>
-        :root {
-            --primary: #007bff;
-            --primary-light: #0056b3;
-            --bg-dark: #f8f9fa;
-            --bg-card: #ffffff;
-            --text-light: #212529;
-            --text-muted: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
-            --border-color: #dee2e6;
-        }
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        header { text-align: center; padding: 2rem; background: var(--bg-card); width: 100%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-        header h1 { margin: 0; font-size: 2.5rem; color: var(--primary); }
-        .container { width: 100%; max-width: 900px; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
-        @media (min-width: 600px) { .container { padding: 2rem; } }
-        .card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; transform: translateY(0); }
-        .card:hover { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); transform: translateY(-2px); }
-        .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; color: var(--primary); }
-        #walletInfo { font-size: 1.1rem; }
-        #walletIdDisplay { word-wrap: break-word; font-family: monospace; align-items: center; margin-bottom: 0.5rem; }
-        #walletIdDisplay .label { font-size: 0.9rem; color: var(--text-muted); margin-right: 0.5rem; }
-        #walletIdDisplay .id-value { font-weight: bold; }
-        #copyButton { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; font-size: 1rem; margin-left: 0.5rem; width: auto; margin-bottom: 0; opacity: 0.8; transition: opacity 0.2s; }
-        #copyButton:hover { opacity: 1; }
-        input, button { padding: 0.8rem; font-size: 1rem; border-radius: 0; border: 1px solid #ced4da; margin-bottom: 1rem; width: 100%; transition: all 0.2s ease-in-out; }
-        input[type="checkbox"] { width: auto; margin-right: 0.5rem; }
-        label { display: flex; align-items: center; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted); }
-        input { background: #f1f3f5; color: var(--text-light); }
-        input::placeholder { color: var(--text-muted); }
-        button { background: var(--primary); color: white; font-weight: bold; border: none; position: relative; }
-        button:hover { background: var(--primary-light); }
-        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
-        button.admin-reset { background-color: var(--danger); }
-        .qr-placeholder { width: 100%; display: flex; justify-content: center; margin-bottom: 1rem; }
-        .loading-spinner { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 1.2rem; height: 1.2rem; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
-        .is-loading .loading-spinner { display: block; }
-        .is-loading span { visibility: hidden; }
-        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-        pre { background: #e9ecef; color: var(--text-light); padding: 1rem; border: 1px solid #ced4da; max-height: 300px; overflow-y: auto; font-size: 0.9rem; line-height: 1.4; }
-        .hidden { display: none; }
         .user-name-display { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-bottom: 0.5rem; text-align: center; }
         .wallet-id-display { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
     </style>
@@ -255,7 +131,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyUAJYa09Sxxe7Z7ayBK2PUD8hWsCi1W2KaAMgxwZgeoarqsuT1FAQcyRpbu6iVC5psEQ/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzbPZnV0-LQu3TvHsJLQmsPYvMjsydDwMqD11V1pea6nxh-VkrsJh3-aZRNlheYDEP9dA/exec";
     let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
     let html5QrCode;
     let pollIntervalId;
@@ -395,6 +271,7 @@
             cancelButtonText: 'Annuleren'
         }).then((result) => {
             if (result.isConfirmed) {
+                // Now, transfer the coins using the recipient's username, as that is the backend's preference.
                 transfer(recipientUsername, amount, "QR Payment");
             }
         });
@@ -533,28 +410,36 @@
         }
     }
 
-    async function transfer() {
+    async function transfer(toUsername, amount, memo) {
         const button = document.getElementById("transferButton");
-        const toUsername = document.getElementById("toUsername").value;
-        const amount = parseFloat(document.getElementById("transferAmount").value);
-        const memo = document.getElementById("memo").value;
         const fromId = currentWalletId;
         const password = currentPassword;
+        
+        // This is a special case for QR code payments.
+        // For regular transfers, we get the recipient username and amount from the form.
+        let targetUsername = toUsername;
+        let targetAmount = amount;
+        
+        if (!toUsername) {
+            targetUsername = document.getElementById("toUsername").value;
+            targetAmount = parseFloat(document.getElementById("transferAmount").value);
+            memo = document.getElementById("memo").value;
+        }
 
-        if (!toUsername || isNaN(amount) || amount <= 0) return Swal.fire("Error", "Check fields", "error");
+        if (!targetUsername || isNaN(targetAmount) || targetAmount <= 0) return Swal.fire("Error", "Check fields", "error");
 
         await refreshBalance();
-        if (amount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
-        if (toUsername.toLowerCase() === currentUsername.toLowerCase()) return Swal.fire("Error", "Cannot send to self", "error");
+        if (targetAmount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
+        if (targetUsername.toLowerCase() === currentUsername.toLowerCase()) return Swal.fire("Error", "Cannot send to self", "error");
 
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(toUsername)}&amount=${amount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(password)}`);
+            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(targetUsername)}&amount=${targetAmount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(password)}`);
             const data = await res.json();
             if (data.error) {
                 Swal.fire("Error", data.error, "error");
             } else {
-                Swal.fire("Success", `Sent ${formatNumber(amount)} to ${toUsername}`, "success");
+                Swal.fire("Success", `Sent ${formatNumber(targetAmount)} to ${targetUsername}`, "success");
                 await refreshBalance();
                 listTx();
             }
@@ -687,457 +572,6 @@
             refreshBalance();
         });
 
-        lastTxIds = data.map(tx => tx.ts);
-    }
-</script>
-</body>
-</html>
-    </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbx2REzw5TLWiC_2X2Nh0uaUmJFYy6PC8rg3wE6VvZNsAGhSqR0hztyWdcsIgRHwWnN00Q/exec";
-    let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
-    let html5QrCode;
-    let pollIntervalId;
-
-    document.addEventListener('DOMContentLoaded', () => {
-        loadWalletFromStorage();
-    });
-
-    function loadWalletFromStorage() {
-        const storedWallet = localStorage.getItem('hyperrush_wallet');
-        if (storedWallet) {
-            try {
-                const walletData = JSON.parse(storedWallet);
-                document.getElementById('userId').value = walletData.idOrUsername;
-                document.getElementById('walletPassword').value = walletData.password;
-                document.getElementById('rememberMe').checked = true;
-                Swal.fire({
-                    title: 'Welkom terug!',
-                    text: 'Je inloggegevens zijn automatisch ingevuld.',
-                    icon: 'info',
-                    showConfirmButton: false,
-                    timer: 3000
-                });
-            } catch (e) {
-                console.error("Failed to parse stored wallet data", e);
-                localStorage.removeItem('hyperrush_wallet');
-            }
-        }
-    }
-
-    function showCreate() {
-        hideAll();
-        document.getElementById("createScreen").classList.remove("hidden");
-    }
-
-    function showLogin() {
-        hideAll();
-        document.getElementById("loginScreen").classList.remove("hidden");
-    }
-    
-    function showAdmin() {
-        hideAll();
-        document.getElementById("adminScreen").classList.remove("hidden");
-    }
-
-    function showWalletActions() {
-        hideAll();
-        document.getElementById("walletActions").classList.remove("hidden");
-        refreshBalance();
-        listTx();
-    }
-
-    function showQRGen() {
-        hideAll();
-        document.getElementById("qrGenScreen").classList.remove("hidden");
-    }
-
-    async function showQRScan() {
-        hideAll();
-        document.getElementById("qrScanScreen").classList.remove("hidden");
-        
-        await stopScanner();
-        
-        try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                let cameraId = cameras[0].id;
-                
-                const backCamera = cameras.find(camera => 
-                    camera.facingMode === 'environment' || 
-                    (camera.label && camera.label.toLowerCase().includes('back')) ||
-                    (camera.label && camera.label.toLowerCase().includes('rear'))
-                );
-
-                if (backCamera) {
-                    cameraId = backCamera.id;
-                }
-                
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader");
-                }
-
-                await html5QrCode.start(
-                    cameraId,
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
-                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-                    },
-                    (decodedText, decodedResult) => {
-                        onScanSuccess(decodedText);
-                    },
-                    (errorMessage) => {}
-                );
-            } else {
-                Swal.fire("Error", "Geen camera's gevonden.", "error");
-            }
-        } catch(e) {
-            Swal.fire("Error", "Kan de camera niet starten. Zorg dat je de juiste rechten hebt.", "error");
-        }
-    }
-
-    async function stopScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            await html5QrCode.stop();
-        }
-    }
-
-    function onScanSuccess(decodedText) {
-        stopScanner();
-        showWalletActions();
-        
-        const prefix = 'hyperrushcoins://pay?';
-        if (!decodedText.startsWith(prefix)) {
-            return Swal.fire("Error", "Ongeldige QR-code voor betaling. De code moet door de app zijn gegenereerd.", "error");
-        }
-        
-        const queryString = decodedText.substring(prefix.length);
-        const params = new URLSearchParams(queryString);
-        
-        const recipientUsername = params.get('to');
-        const amount = parseFloat(params.get('amount'));
-
-        if (!recipientUsername || isNaN(amount) || amount <= 0) {
-            return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
-        }
-
-        Swal.fire({
-            title: `Betaal ${formatNumber(amount)} coins?`,
-            html: `Aan: <b>${recipientUsername}</b>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Ja, betaal',
-            cancelButtonText: 'Annuleren'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                transfer(recipientUsername, amount, "QR Payment");
-            }
-        });
-    }
-
-    function backToWelcome() {
-        hideAll();
-        document.getElementById("walletIdDisplay").innerHTML = '';
-        document.getElementById("walletInfo").innerText = '';
-        document.getElementById("welcomeScreen").classList.remove("hidden");
-        stopScanner();
-        clearInterval(pollIntervalId);
-    }
-
-    function hideAll() {
-        document.querySelectorAll(".card").forEach(c => c.classList.add("hidden"));
-    }
-
-    function formatNumber(n) {
-        return Number(n).toLocaleString("en-US");
-    }
-
-    function setButtonLoading(button, isLoading) {
-        button.disabled = isLoading;
-        if (isLoading) {
-            button.classList.add("is-loading");
-        } else {
-            button.classList.remove("is-loading");
-        }
-    }
-
-    async function createAccount() {
-        const button = document.getElementById("createButton");
-        const username = document.getElementById("newUsername").value;
-        const pw = document.getElementById("newPassword").value;
-        if (!username || !pw) return Swal.fire("Error", "Username and password required", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=createWallet&username=${encodeURIComponent(username)}&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `Wallet created for user <b>${data.username}</b> with ID <code>${data.id}</code>`, "success");
-                backToWelcome();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function login() {
-        const button = document.getElementById("loginButton");
-        const idOrUsername = document.getElementById("userId").value;
-        const pw = document.getElementById("walletPassword").value;
-        const rememberMe = document.getElementById("rememberMe").checked;
-
-        if (!idOrUsername || !pw) return Swal.fire("Error", "Missing credentials", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(idOrUsername)}&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                currentWalletId = data.id;
-                currentUsername = data.username;
-                currentPassword = pw;
-                currentBalance = data.balance;
-                if (rememberMe) {
-                    localStorage.setItem('hyperrush_wallet', JSON.stringify({ idOrUsername: idOrUsername, password: pw }));
-                } else {
-                    localStorage.removeItem('hyperrush_wallet');
-                }
-                hideAll();
-                document.getElementById("walletActions").classList.remove("hidden");
-                updateWalletInfo();
-                listTx();
-                startPolling();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    function logout() {
-        localStorage.removeItem('hyperrush_wallet');
-        currentWalletId = "";
-        currentUsername = "";
-        currentPassword = "";
-        currentBalance = 0;
-        document.getElementById('userId').value = "";
-        document.getElementById('walletPassword').value = "";
-        document.getElementById('rememberMe').checked = false;
-        backToWelcome();
-        Swal.fire("Uitgelogd", "Je bent succesvol uitgelogd.", "success");
-    }
-
-    function updateWalletInfo() {
-        const walletIdDisplay = document.getElementById("walletIdDisplay");
-        walletIdDisplay.innerHTML = `<span class="label">User:</span> <span class="id-value">${currentUsername}</span><br><span class="label">ID:</span> <span class="id-value">${currentWalletId}</span><button id="copyButton" onclick="copyToClipboard('${currentWalletId}')">📋</button>`;
-        document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)} coins`;
-    }
-
-    async function refreshBalance() {
-        const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentUsername)}&password=${encodeURIComponent(currentPassword)}`);
-        const data = await res.json();
-        if (!data.error) {
-            currentBalance = data.balance;
-            updateWalletInfo();
-        }
-        return currentBalance;
-    }
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            Swal.fire({
-                icon: 'success',
-                title: 'Gekopieerd!',
-                text: 'Wallet ID is naar je klembord gekopieerd.',
-                showConfirmButton: false,
-                timer: 1500
-            });
-        }).catch(err => {
-            Swal.fire('Error', 'Kon niet kopiëren: ' + err, 'error');
-        });
-    }
-
-    async function addCoins() {
-        const button = document.getElementById("addCoinsButton");
-        const amt = parseFloat(document.getElementById("addAmount").value);
-        if (isNaN(amt) || amt <= 0) return Swal.fire("Error", "Invalid amount", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentUsername)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `${formatNumber(amt)} coins added`, "success");
-                await refreshBalance();
-                listTx();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function transfer() {
-        const button = document.getElementById("transferButton");
-        const to = document.getElementById("to").value;
-        const amount = parseFloat(document.getElementById("transferAmount").value);
-        const memo = document.getElementById("memo").value;
-        const from = currentUsername;
-        const password = currentPassword;
-
-        if (!to || isNaN(amount) || amount <= 0) return Swal.fire("Error", "Check fields", "error");
-        
-        await refreshBalance();
-        if (amount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
-        if (to.toLowerCase() === from.toLowerCase()) return Swal.fire("Error", "Cannot send to self", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${amount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(password)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", `Sent ${formatNumber(amount)} to ${to}`, "success");
-                await refreshBalance();
-                listTx();
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function changePassword() {
-        const button = document.getElementById("changePasswordButton");
-        const oldPw = document.getElementById("oldPassword").value;
-        const newPw = document.getElementById("newPassword").value;
-
-        if (!oldPw || !newPw) return Swal.fire("Error", "Fill in both passwords", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=changePassword&id=${encodeURIComponent(currentUsername)}&oldPassword=${encodeURIComponent(oldPw)}&newPassword=${encodeURIComponent(newPw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Success", "Password changed successfully.", "success");
-                currentPassword = newPw;
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-    
-    function generateQR() {
-        const amount = document.getElementById("qrAmount").value;
-        if (!currentUsername || !amount || parseFloat(amount) <= 0) {
-            return Swal.fire("Error", "Vul een geldig bedrag in.", "error");
-        }
-        
-        const qrCanvas = document.getElementById("qrCanvas");
-        const data = `hyperrushcoins://pay?to=${currentUsername}&amount=${amount}`;
-
-        new QRious({
-            element: qrCanvas,
-            value: data,
-            size: 200,
-            background: 'white',
-            foreground: '#007bff'
-        });
-    }
-
-    async function listTx() {
-        const button = document.getElementById("listTxButton");
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=listTx&limit=50&username=${encodeURIComponent(currentUsername)}`);
-            const data = await res.json();
-            
-            let logText = `--- Transactions for ${currentUsername} ---\n\n`;
-            data.forEach(tx => {
-              const direction = tx.from.toLowerCase() === currentUsername.toLowerCase() ? "OUT" : "IN";
-              const otherParty = direction === "OUT" ? tx.to : tx.from;
-              const sign = direction === "OUT" ? "-" : "+";
-              
-              logText += `${new Date(tx.ts).toLocaleString()}\n`;
-              logText += `  ${sign}${formatNumber(tx.amount)} from ${otherParty}\n`;
-              logText += `  Memo: ${tx.memo || "-"}\n\n`;
-            });
-            document.getElementById("txLog").innerText = logText;
-            lastTxIds = data.map(tx => tx.ts);
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    async function adminReset() {
-        const button = document.getElementById("adminResetButton");
-        const pw = document.getElementById("adminPassword").value;
-        if (!pw) return Swal.fire("Error", "Enter admin password", "error");
-
-        setButtonLoading(button, true);
-        try {
-            const res = await fetch(`${API_URL}?action=adminReset&password=${encodeURIComponent(pw)}`);
-            const data = await res.json();
-            if (data.error) {
-                Swal.fire("Error", data.error, "error");
-            } else {
-                Swal.fire("Reset Complete", "All data wiped", "success");
-                hideAll();
-                document.getElementById("welcomeScreen").classList.remove("hidden");
-                document.getElementById("txLog").innerText = "";
-                document.getElementById("walletInfo").innerText = "";
-                lastTxIds = [];
-            }
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-
-    function updateMaxTransfer() {
-        const maxVal = currentBalance;
-        const transferInput = document.getElementById("transferAmount");
-        transferInput.setAttribute("max", maxVal);
-        transferInput.setAttribute("placeholder", `Max: ${formatNumber(maxVal)}`);
-    }
-    
-    function startPolling() {
-        if (pollIntervalId) {
-            clearInterval(pollIntervalId);
-        }
-        pollIntervalId = setInterval(pollIncoming, 5000);
-    }
-    
-    async function pollIncoming() {
-        if (!currentUsername) return;
-        const res = await fetch(`${API_URL}?action=listTx&limit=10&username=${encodeURIComponent(currentUsername)}`);
-        const data = await res.json();
-
-        const newIncoming = data.filter(tx => 
-            tx.to.toLowerCase() === currentUsername.toLowerCase() &&
-            !lastTxIds.includes(tx.ts)
-        );
-        
-        newIncoming.forEach(tx => {
-            Swal.fire({
-                icon: "success",
-                title: "Coins Received",
-                html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || "-"}`,
-                timer: 5000,
-                showConfirmButton: false,
-                timerProgressBar: true
-            });
-            refreshBalance();
-        });
-        
         lastTxIds = data.map(tx => tx.ts);
     }
 </script>
