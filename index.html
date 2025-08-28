@@ -1,127 +1,228 @@
-<!doctype html>
-<html lang="nl">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>HyperRush Coins — fixed</title>
-<link rel="icon" href="data:;base64,=" />
+<meta charset="UTF-8">
+<title>HyperRush Coins Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 <style>
-  :root{--bg:#07102a;--card:#0e1530;--muted:#9aa3ff;--ok:#25d366}
-  *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto;color:#e8eeff;background:linear-gradient(180deg,#04102a,#07102a);}
-  .wrap{max-width:980px;margin:20px auto;padding:16px}
-  .grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
-  .card{background:var(--card);padding:12px;border-radius:12px;border:1px solid #222b58}
-  input,select,button,textarea{width:100%;padding:8px;border-radius:8px;background:#07112a;border:1px solid #1f2a55;color:inherit}
-  .row{display:flex;gap:8px}
-  button{cursor:pointer}
-  .small{font-size:13px;color:var(--muted)}
-  canvas{display:block;margin:auto}
-  .hidden{display:none}
-  video{width:100%;height:auto;border-radius:8px;background:#000}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:6px;border-bottom:1px solid #121732;font-size:13px}
-  .mono{font-family:ui-monospace,monospace}
+  /* Modern clean UI */
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #121212;
+    color: #f0f0f0;
+    margin: 0;
+    padding: 2em;
+  }
+  h1 {
+    color: #0ff;
+    margin-bottom: 1em;
+    text-align: center;
+    font-size: 2.2em;
+  }
+  .card {
+    background: #1e1e1e;
+    padding: 1.5em;
+    border-radius: 16px;
+    margin-bottom: 2em;
+    box-shadow: 0 8px 20px rgba(0,255,255,0.15);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,255,255,0.25); }
+  input, button {
+    padding: 0.6em;
+    margin: 0.4em 0;
+    border-radius: 12px;
+    border: none;
+    font-size: 1em;
+  }
+  input {
+    width: 100%;
+    background: #2b2b2b;
+    color: #f0f0f0;
+  }
+  input::placeholder { color: #aaa; }
+  button {
+    background: #0ff;
+    color: #111;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    transition: 0.3s;
+  }
+  button:hover { background: #0cc; }
+  pre {
+    background: #000;
+    padding: 1em;
+    border-radius: 12px;
+    color: #0f0;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .section-title { font-size: 1.3em; margin-bottom: 0.5em; color: #0ff; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h2>HyperRush Coins — fixed (geen backend)</h2>
-  <div class="grid">
-    <div class="card">
-      <label>Wallet</label>
-      <div class="row" style="margin-top:8px"><select id="walletSel"></select><button id="del">🗑️</button></div>
-      <label style="margin-top:8px">Nieuwe naam</label>
-      <div class="row"><input id="newName" placeholder="bv. Kassa"><button id="create">Maak</button></div>
-      <p class="small" style="margin-top:8px">ID: <span id="wid" class="mono">—</span></p>
-      <p class="small">Saldo: <strong id="bal">0.00</strong> HRC</p>
-      <div class="row" style="gap:6px;margin-top:8px"><button id="faucet">+100</button><button id="wipe">Wipe</button></div>
-      <hr style="border:none;border-top:1px solid #121732;margin:12px 0">
-      <p class="small">Export / Import</p>
-      <div class="row"><button id="export">Export</button><button id="import">Import</button></div>
-    </div>
 
-    <div>
-      <div class="card">
-        <label>1) Ontvangen — maak verzoek</label>
-        <div class="row" style="margin-top:8px"><input id="amt" type="number" placeholder="Bedrag" min="0.01" step="0.01"><input id="memo" placeholder="Memo"></div>
-        <div class="row" style="margin-top:8px"><button id="make">Genereer QR</button></div>
-        <div style="margin-top:10px" class="card"><canvas id="reqQR" width="220" height="220"></canvas></div>
-      </div>
+<h1>HyperRush Coins Dashboard</h1>
 
-      <div class="card" style="margin-top:12px">
-        <label>2) Betalen — scan verzoek</label>
-        <div class="row" style="margin-top:8px"><button id="scanReq">Open camera</button><div class="small">Camera lokaal</div></div>
-        <div id="scanReqWrap" class="hidden" style="margin-top:8px"><video id="videoReq" playsinline></video></div>
-        <div id="reqInfo" class="small"></div>
-        <div style="margin-top:8px" class="card hidden" id="proofCard"><canvas id="proofQR" width="220" height="220"></canvas></div>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <label>3) Bevestigen — scan betalingsbewijs</label>
-        <div class="row" style="margin-top:8px"><button id="scanProof">Open camera</button></div>
-        <div id="scanProofWrap" class="hidden" style="margin-top:8px"><video id="videoProof" playsinline></video></div>
-        <div id="proofInfo" class="small"></div>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <label>Geschiedenis</label>
-        <table id="hist"><tr><td class="small">Nog geen transacties</td></tr></table>
-      </div>
-    </div>
-  </div>
+<div class="card">
+  <div class="section-title">Create Account</div>
+  <input id="newPassword" type="password" placeholder="Password">
+  <button onclick="createAccount()">Create Wallet</button>
 </div>
 
-<!-- lib: QR generator + scanner -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<div class="card">
+  <div class="section-title">Login</div>
+  <input id="walletId" placeholder="Wallet ID">
+  <input id="walletPassword" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <div id="walletInfo"></div>
+</div>
 
+<div class="card" id="walletActions" style="display:none">
+  <div class="section-title">Add Coins</div>
+  <input id="addAmount" type="number" placeholder="Amount">
+  <button onclick="addCoins()">Add Coins</button>
+
+  <div class="section-title">Transfer Coins</div>
+  <input id="to" placeholder="Recipient Wallet ID">
+  <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
+  <input id="memo" placeholder="Memo (optional)">
+  <button onclick="transfer()">Send</button>
+
+  <div class="section-title">Transactions</div>
+  <button onclick="listTx()">Refresh</button>
+  <pre id="txLog"></pre>
+</div>
+
+<div class="card">
+  <div class="section-title">Admin Reset</div>
+  <input id="adminPassword" type="password" placeholder="Admin Password">
+  <button onclick="adminReset()">Reset Everything</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-// compacte, veilige helpers
-const DB='hrc_v2',NDB='hrc_nonces_v2';
-let state={wallets:{},nonces:{},cur:null};
-const $=id=>document.getElementById(id);
-const uid=()=>crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+(b%16).toString(16),'');
-function b64enc(s){return btoa(encodeURIComponent(s).replace(/%([0-9A-F]{2})/g,(m,p)=>String.fromCharCode('0x'+p)))}
-function b64dec(s){return decodeURIComponent(atob(s).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))}
-function load(){try{state.wallets=JSON.parse(localStorage.getItem(DB))||{}}catch{state.wallets={}}try{state.nonces=JSON.parse(localStorage.getItem(NDB))||{}}catch{state.nonces={}}state.cur=Object.keys(state.wallets)[0]||state.cur;render()}
-function save(){localStorage.setItem(DB,JSON.stringify(state.wallets));localStorage.setItem(NDB,JSON.stringify(state.nonces))}
-function render(){const sel=$('walletSel');sel.innerHTML=Object.keys(state.wallets).map(id=>`<option value="${id}">${state.wallets[id].name}</option>`).join('');if(state.cur && state.wallets[state.cur]) sel.value=state.cur; else state.cur=sel.value||Object.keys(state.wallets)[0]||null;$('wid').textContent=state.cur||'—';$('bal').textContent=state.cur?Number(state.wallets[state.cur].balance).toFixed(2):'0.00';renderHist()}
-function renderHist(){const tbl=$('hist');if(!state.cur){tbl.innerHTML='<tr><td class="small">Geen wallet</td></tr>';return}const h=state.wallets[state.cur].history||[];if(!h.length){tbl.innerHTML='<tr><td class="small">Nog geen transacties</td></tr>';return}tbl.innerHTML='<tr><th>id</th><th>type</th><th>bedrag</th><th>memo</th><th>when</th></tr>'+h.slice().reverse().map(t=>`<tr><td class="mono">${t.txid.slice(0,8)}</td><td>${t.type}</td><td>${Number(t.amount).toFixed(2)}</td><td>${t.memo||''}</td><td class="small">${new Date(t.ts).toLocaleString()}</td></tr>`).join('')}
+const API_URL = "https://script.google.com/macros/s/AKfycbzN5nMKjoKpEeH1ynKBZC7C51gvZyQuQioxQ7Uf-FshQxHPkD7lfYFZGKsuNKb06lVqGQ/exec";
 
-// wallet controls
-$('create').onclick=()=>{const n=$('newName').value.trim()||'Wallet';const id=uid();state.wallets[id]={id,name:n,balance:0,history:[]};state.cur=id;save();load()}
-$('walletSel').onchange=e=>{state.cur=e.target.value;render()}
-$('del').onclick=()=>{if(!state.cur) return; if(!confirm('Verwijder?')) return; delete state.wallets[state.cur]; delete state.nonces[state.cur]; state.cur=Object.keys(state.wallets)[0]||null; save(); load()}
-$('faucet').onclick=()=>{if(!state.cur) return; state.wallets[state.cur].balance=(Number(state.wallets[state.cur].balance)||0)+100; save(); render()}
-$('wipe').onclick=()=>{if(confirm('Wipe lokale data?')){localStorage.removeItem(DB);localStorage.removeItem(NDB);state={wallets:{},nonces:{},cur:null};load()}}
-$('export').onclick=()=>{if(!state.cur) return;const blob=new Blob([JSON.stringify(state.wallets[state.cur],0,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`wallet_${state.wallets[state.cur].name}.json`;a.click()}
-$('import').onclick=()=>{const f=document.createElement('input');f.type='file';f.accept='application/json';f.onchange=async e=>{const file=e.target.files[0];if(!file) return;const t=await file.text();try{const w=JSON.parse(t);if(!w.id) throw 0;state.wallets[w.id]=w;state.cur=w.id;save();load()}catch{alert('Ongeldig bestand')}};f.click()}
+let currentWalletId = "";
+let currentPassword = "";
+let currentBalance = 0;
+let lastTxIds = [];
 
-// encode/decode HRC payload
-function makeRequest(to,amount,memo){return {v:1,type:'request',to,amount:Number(amount),memo:memo||'',nonce:uid(),ts:Date.now()}}
-function makeProof(from,to,amount,memo,nonce){return {v:1,type:'proof',from,to,amount:Number(amount),memo:memo||'',nonce,ts:Date.now(),txid:uid()}}
-function pack(obj){return 'HRC:'+b64enc(JSON.stringify(obj))}
-function unpack(text){try{if(!text.startsWith('HRC:')) return null;return JSON.parse(b64dec(text.slice(4)))}catch{return null}}
+function formatNumber(num){
+  return Number(num).toLocaleString('fullwide',{useGrouping:false});
+}
 
-// QR gen
-function drawQR(canvas,text){QRCode.toCanvas(canvas,text,{errorCorrectionLevel:'Q',width:220},e=>{if(e)console.error(e)})}
-$('make').onclick=()=>{if(!state.cur) return alert('Maak wallet');const a=Number($('amt').value);if(!(a>0)) return alert('Voer bedrag in');const p=makeRequest(state.cur,a,$('memo').value||'');drawQR($('reqQR'),pack(p));$('reqInfo')?.remove();}
+// --- Create Account ---
+async function createAccount(){
+  const pw = document.getElementById("newPassword").value;
+  if(!pw) return Swal.fire('Error','Please enter a password','error');
+  const res = await fetch(`${API_URL}?action=createWallet&password=${encodeURIComponent(pw)}`);
+  const data = await res.json();
+  if(data.error){ Swal.fire('Error', data.error,'error'); return; }
+  Swal.fire('Success', `Wallet created! ID: ${data.id}`, 'success');
+}
 
-// scanner helper
-let activeStream=null, scanCancel=null;
-async function startCamera(videoEl){if(activeStream){stopCamera();}try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});videoEl.srcObject=s;await videoEl.play();activeStream=s;return true}catch(e){alert('Camera niet beschikbaar: '+e.message);return false}}
-function stopCamera(){try{if(activeStream) activeStream.getTracks().forEach(t=>t.stop());}catch{}activeStream=null}
-function scanLoop(video,cb){const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');let running=true;scanCancel=()=>{running=false;stopCamera();document.querySelectorAll('#scanReqWrap,#scanProofWrap').forEach(el=>el.classList.add('hidden'));};(function loop(){if(!running) return; if(video.readyState===video.HAVE_ENOUGH_DATA){canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.drawImage(video,0,0,canvas.width,canvas.height);const id=ctx.getImageData(0,0,canvas.width,canvas.height);const code=jsQR(id.data,id.width,id.height);if(code && code.data){running=false;stopCamera();cb(code.data);return}}requestAnimationFrame(loop)})();}
+// --- Login ---
+async function login(){
+  const id = document.getElementById("walletId").value;
+  const pw = document.getElementById("walletPassword").value;
+  if(!id || !pw) return Swal.fire('Error','Please enter Wallet ID and Password','error');
+  const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(id)}&password=${encodeURIComponent(pw)}`);
+  const data = await res.json();
+  if(data.error){ Swal.fire('Error',data.error,'error'); return; }
+  currentWalletId = id; currentPassword = pw;
+  currentBalance = data.balance;
+  Swal.fire('Welcome', `Wallet ${id} logged in! Balance: ${formatNumber(data.balance)}`, 'success');
+  document.getElementById("walletActions").style.display = "block";
+  document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(data.balance)}`;
+  listTx();
+  pollIncoming(); // start polling
+}
 
-// pay: scan request
-$('scanReq').onclick=async ()=>{if(!state.cur) return alert('Maak wallet');const v=$('videoReq');$('scanReqWrap').classList.remove('hidden');const ok=await startCamera(v);if(!ok) return;scanLoop(v,(text)=>{const p=unpack(text);if(!p||p.type!=='request') return alert('Geen HRC-verzoek');if((state.nonces[p.to]||{})[p.nonce]) return alert('Verzoek al verwerkt');const w=state.wallets[state.cur];if(w.balance < p.amount) return alert('Onvoldoende saldo');if(!confirm(`Betalen ${p.amount} HRC?`)) return; // do pay
- w.balance -= p.amount; w.history.push({txid:uid(),type:'pay',from:state.cur,to:p.to,amount:p.amount,memo:p.memo,ts:Date.now()}); save(); render(); const proof=makeProof(state.cur,p.to,p.amount,p.memo,p.nonce);drawQR($('proofQR'),pack(proof));$('proofCard').classList.remove('hidden');$('reqInfo').textContent=`Betaald: ${p.amount} HRC — toon QR aan ontvanger.`})}
+// --- Add Coins ---
+async function addCoins(){
+  const amount = parseFloat(document.getElementById("addAmount").value);
+  if(!amount) return Swal.fire('Error','Please enter an amount','error');
+  const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amount}&password=${encodeURIComponent(currentPassword)}`);
+  const data = await res.json();
+  if(data.error){ Swal.fire('Error', data.error,'error'); return; }
+  Swal.fire('Success', `Added ${formatNumber(amount)} coins`, 'success');
+  document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(data.balance)}`;
+  listTx();
+}
 
-// confirm: scan proof
-$('scanProof').onclick=async ()=>{if(!state.cur) return alert('Maak wallet');const v=$('videoProof');$('scanProofWrap').classList.remove('hidden');const ok=await startCamera(v);if(!ok) return;scanLoop(v,(text)=>{const p=unpack(text);if(!p||p.type!=='proof') return alert('Geen HRC-bewijs');if(p.to !== state.cur) return alert('Bewijs niet voor deze wallet');if((state.nonces[p.to]||{})[p.nonce]) return alert('Bewijs al verwerkt'); // credit
- const w=state.wallets[state.cur];w.balance = (Number(w.balance)||0) + Number(p.amount); w.history.push({txid:p.txid||uid(),type:'in',from:p.from,to:p.to,amount:p.amount,memo:p.memo,ts:Date.now()}); state.nonces[p.to] = state.nonces[p.to]||{}; state.nonces[p.to][p.nonce]=true; save(); render(); $('proofInfo').textContent=`Gecrediteerd ${p.amount} HRC van ${p.from.slice(0,8)}`;})}
+// --- Transfer ---
+async function transfer(){
+  const to = document.getElementById("to").value;
+  const amount = parseFloat(document.getElementById("transferAmount").value);
+  const memo = document.getElementById("memo").value;
+  if(!to || !amount) return Swal.fire('Error','Please enter recipient and amount','error');
+  if(amount > currentBalance) return Swal.fire('Error','Insufficient balance','error');
+  if(to === currentWalletId) return Swal.fire('Error','Cannot send coins to yourself','error');
+  const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(currentWalletId)}&to=${encodeURIComponent(to)}&amount=${amount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(currentPassword)}`);
+  const data = await res.json();
+  if(data.error){ Swal.fire('Error', data.error,'error'); return; }
+  Swal.fire('Success', `Sent ${formatNumber(amount)} coins to ${to}`, 'success');
+  listTx();
+  login(); // refresh balance
+}
 
-window.addEventListener('load',()=>{load(); if(!Object.keys(state.wallets).length){const id=uid();state.wallets[id]={id,name:'MijnWallet',balance:200,history:[]};state.cur=id;save();load()}})
+// --- Transaction log ---
+async function listTx(){
+  const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+  const data = await res.json();
+  const formatted = data.map(t=>({...t, amount:formatNumber(t.amount)}));
+  document.getElementById("txLog").innerText = JSON.stringify(formatted,null,2);
+  lastTxIds = formatted.map(tx=>tx.ts);
+}
+
+// --- Admin reset ---
+async function adminReset(){
+  const pw = document.getElementById("adminPassword").value;
+  if(!pw) return Swal.fire('Error','Please enter admin password','error');
+  const res = await fetch(`${API_URL}?action=adminReset&password=${encodeURIComponent(pw)}`);
+  const data = await res.json();
+  if(data.error){ Swal.fire('Error', data.error,'error'); return; }
+  Swal.fire('Success','All wallets and transactions reset!','success');
+  document.getElementById("walletActions").style.display = "none";
+  document.getElementById("walletInfo").innerText = "";
+  document.getElementById("txLog").innerText = "";
+  lastTxIds = [];
+}
+
+// --- Update max transfer amount ---
+function updateMaxTransfer(){
+  const maxAmount = currentBalance;
+  document.getElementById("transferAmount").setAttribute("max", maxAmount);
+  document.getElementById("transferAmount").setAttribute("placeholder", `Max: ${formatNumber(maxAmount)}`);
+}
+
+// --- Polling for incoming coins ---
+async function pollIncoming(){
+  if(!currentWalletId) return;
+  const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+  const data = await res.json();
+  data.forEach(tx=>{
+    if(!lastTxIds.includes(tx.ts) && tx.to === currentWalletId && tx.from !== "system"){
+      Swal.fire({
+        icon: 'success',
+        title: 'New Coins Received!',
+        html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || '-'}`,
+        timer: 5000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      });
+      currentBalance += parseFloat(tx.amount);
+      document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)}`;
+    }
+  });
+  lastTxIds = data.map(tx=>tx.ts);
+}
+
+// Poll every 5 seconds
+setInterval(pollIncoming, 5000);
 </script>
 </body>
 </html>
