@@ -5,6 +5,8 @@
     <title>HyperRush Coins</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root {
             --primary: #007bff;
@@ -176,6 +178,13 @@
         button.admin-reset {
             background-color: var(--danger);
         }
+        
+        .qr-placeholder {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
 
         .loading-spinner {
             display: none;
@@ -259,11 +268,28 @@
         <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
         <input id="memo" placeholder="Memo (optional)">
         <button id="transferButton" onclick="transfer()"><span>Send</span><div class="loading-spinner"></div></button>
+        <div class="section-title">QR Code Payments</div>
+        <button onclick="showQRGen()">Create QR Code</button>
+        <button onclick="showQRScan()">Scan QR Code</button>
         <div class="section-title">History</div>
         <button id="listTxButton" onclick="listTx()"><span>Refresh</span><div class="loading-spinner"></div></button>
         <pre id="txLog"></pre>
         <hr>
         <button onclick="logout()">Uitloggen</button>
+    </div>
+    <div class="card hidden" id="qrGenScreen">
+        <div class="section-title">Create QR Code</div>
+        <input id="qrAmount" type="number" placeholder="Amount to request">
+        <button onclick="generateQR()">Generate QR</button>
+        <div class="qr-placeholder"><canvas id="qrCanvas"></canvas></div>
+        <button onclick="showWalletActions()">Back</button>
+    </div>
+    <div class="card hidden" id="qrScanScreen">
+        <div class="section-title">Scan QR Code</div>
+        <p>Richt de camera op de QR-code.</p>
+        <div id="reader"></div>
+        <button onclick="stopScanner()">Stop Scanner</button>
+        <button onclick="showWalletActions()">Back</button>
     </div>
     <div class="card hidden" id="adminScreen">
         <div class="section-title">Admin Reset</div>
@@ -276,6 +302,7 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY41xp3sxrhT_twOJ8w/exec";
     let currentWalletId = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
+    let html5QrCode;
 
     document.addEventListener('DOMContentLoaded', () => {
         loadWalletFromStorage();
@@ -318,11 +345,92 @@
         document.getElementById("adminScreen").classList.remove("hidden");
     }
 
+    function showWalletActions() {
+        hideAll();
+        document.getElementById("walletActions").classList.remove("hidden");
+        // Update balance and tx log when returning
+        refreshBalance();
+        listTx();
+    }
+
+    function showQRGen() {
+        hideAll();
+        document.getElementById("qrGenScreen").classList.remove("hidden");
+    }
+
+    async function showQRScan() {
+        hideAll();
+        document.getElementById("qrScanScreen").classList.remove("hidden");
+        // Start scanner
+        try {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            const cameras = await Html5Qrcode.getCameras();
+            if (cameras && cameras.length) {
+                await html5QrCode.start(
+                    cameras[0].id, {
+                        qrbox: { width: 250, height: 250 },
+                        fps: 10
+                    },
+                    (decodedText, decodedResult) => {
+                        onScanSuccess(decodedText);
+                        stopScanner();
+                    },
+                    (errorMessage) => {
+                        // console.warn(`QR scan error: ${errorMessage}`);
+                    }
+                );
+            } else {
+                Swal.fire("Error", "Geen camera's gevonden.", "error");
+            }
+        } catch(e) {
+             Swal.fire("Error", "Kan de camera niet starten. Zorg dat je de juiste rechten hebt.", "error");
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            await html5QrCode.stop();
+        }
+    }
+
+    function onScanSuccess(decodedText) {
+        let recipientId, amount;
+        try {
+            const url = new URL(decodedText);
+            if (url.protocol === 'hyperrushcoins:' && url.pathname === '//pay') {
+                recipientId = url.searchParams.get('to');
+                amount = parseFloat(url.searchParams.get('amount'));
+            } else {
+                return Swal.fire("Error", "Ongeldige QR-code voor betaling.", "error");
+            }
+        } catch (e) {
+            return Swal.fire("Error", "Kon QR-code niet parsen.", "error");
+        }
+
+        if (recipientId && !isNaN(amount) && amount > 0) {
+            Swal.fire({
+                title: `Betaal ${formatNumber(amount)} coins?`,
+                html: `Aan: <b>${recipientId}</b>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ja, betaal',
+                cancelButtonText: 'Annuleren'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    transfer(recipientId, amount);
+                }
+            });
+        }
+    }
+
     function backToWelcome() {
         hideAll();
         document.getElementById("walletIdDisplay").innerHTML = '';
         document.getElementById("walletInfo").innerText = '';
         document.getElementById("welcomeScreen").classList.remove("hidden");
+        stopScanner();
     }
 
     function hideAll() {
@@ -459,30 +567,48 @@
         }
     }
 
-    async function transfer() {
+    async function transfer(to, amount, memo = "") {
         const button = document.getElementById("transferButton");
-        const to = document.getElementById("to").value;
-        const amt = parseFloat(document.getElementById("transferAmount").value);
-        const memo = document.getElementById("memo").value;
-        if (!to || isNaN(amt) || amt <= 0) return Swal.fire("Error", "Check fields", "error");
+        const from = currentWalletId;
+        const password = currentPassword;
+        if (!to || isNaN(amount) || amount <= 0) return Swal.fire("Error", "Check fields", "error");
+        
         await refreshBalance();
-        if (amt > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
-        if (to === currentWalletId) return Swal.fire("Error", "Cannot send to self", "error");
+        if (amount > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
+        if (to === from) return Swal.fire("Error", "Cannot send to self", "error");
 
         setButtonLoading(button, true);
         try {
-            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(currentWalletId)}&to=${encodeURIComponent(to)}&amount=${amt}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(currentPassword)}`);
+            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${amount}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(password)}`);
             const data = await res.json();
             if (data.error) {
                 Swal.fire("Error", data.error, "error");
             } else {
-                Swal.fire("Success", `Sent ${formatNumber(amt)} to ${to}`, "success");
+                Swal.fire("Success", `Sent ${formatNumber(amount)} to ${to}`, "success");
                 await refreshBalance();
                 listTx();
             }
         } finally {
             setButtonLoading(button, false);
         }
+    }
+    
+    function generateQR() {
+        const amount = document.getElementById("qrAmount").value;
+        if (!currentWalletId || !amount || parseFloat(amount) <= 0) {
+            return Swal.fire("Error", "Vul een geldig bedrag in.", "error");
+        }
+        
+        const qrCanvas = document.getElementById("qrCanvas");
+        const data = `hyperrushcoins://pay?to=${currentWalletId}&amount=${amount}`;
+
+        new QRious({
+            element: qrCanvas,
+            value: data,
+            size: 200,
+            background: 'white',
+            foreground: '#007bff'
+        });
     }
 
     async function listTx() {
