@@ -19,215 +19,37 @@
             --danger: #dc3545;
             --border-color: #dee2e6;
         }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-light);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        header {
-            text-align: center;
-            padding: 2rem;
-            background: var(--bg-card);
-            width: 100%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        header h1 {
-            margin: 0;
-            font-size: 2.5rem;
-            color: var(--primary);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        
-        @media (min-width: 600px) {
-            .container {
-                padding: 2rem;
-            }
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            transform: translateY(0);
-        }
-
-        .card:hover {
-            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .section-title {
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            color: var(--primary);
-        }
-
-        #walletInfo {
-            font-size: 1.1rem;
-        }
-
-        #walletIdDisplay {
-            word-wrap: break-word;
-            font-family: monospace;
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        #walletIdDisplay .label {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-right: 0.5rem;
-        }
-
-        #walletIdDisplay .id-value {
-            font-weight: bold;
-        }
-
-        #copyButton {
-            background: none;
-            border: none;
-            color: var(--primary);
-            cursor: pointer;
-            padding: 0;
-            font-size: 1rem;
-            margin-left: 0.5rem;
-            width: auto;
-            margin-bottom: 0;
-            opacity: 0.8;
-            transition: opacity 0.2s;
-        }
-
-        #copyButton:hover {
-            opacity: 1;
-        }
-
-        input, button {
-            padding: 0.8rem;
-            font-size: 1rem;
-            border-radius: 0;
-            border: 1px solid #ced4da;
-            margin-bottom: 1rem;
-            width: 100%;
-            transition: all 0.2s ease-in-out;
-        }
-
-        input[type="checkbox"] {
-            width: auto;
-            margin-right: 0.5rem;
-        }
-
-        label {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        input {
-            background: #f1f3f5;
-            color: var(--text-light);
-        }
-
-        input::placeholder {
-            color: var(--text-muted);
-        }
-
-        button {
-            background: var(--primary);
-            color: white;
-            font-weight: bold;
-            border: none;
-            position: relative;
-        }
-
-        button:hover {
-            background: var(--primary-light);
-        }
-
-        button:disabled {
-            background-color: #a0a0a0;
-            cursor: not-allowed;
-        }
-        
-        button.admin-reset {
-            background-color: var(--danger);
-        }
-        
-        .qr-placeholder {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            margin-bottom: 1rem;
-        }
-
-        .loading-spinner {
-            display: none;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 1.2rem;
-            height: 1.2rem;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        .is-loading .loading-spinner {
-            display: block;
-        }
-        
-        .is-loading span {
-            visibility: hidden;
-        }
-
-        @keyframes spin {
-            to {
-                transform: translate(-50%, -50%) rotate(360deg);
-            }
-        }
-
-        pre {
-            background: #e9ecef;
-            color: var(--text-light);
-            padding: 1rem;
-            border: 1px solid #ced4da;
-            max-height: 300px;
-            overflow-y: auto;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .hidden {
-            display: none;
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        header { text-align: center; padding: 2rem; background: var(--bg-card); width: 100%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        header h1 { margin: 0; font-size: 2.5rem; color: var(--primary); }
+        .container { width: 100%; max-width: 900px; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        @media (min-width: 600px) { .container { padding: 2rem; } }
+        .card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; transform: translateY(0); }
+        .card:hover { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); transform: translateY(-2px); }
+        .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; color: var(--primary); }
+        #walletInfo { font-size: 1.1rem; }
+        #walletIdDisplay { word-wrap: break-word; font-family: monospace; align-items: center; margin-bottom: 0.5rem; }
+        #walletIdDisplay .label { font-size: 0.9rem; color: var(--text-muted); margin-right: 0.5rem; }
+        #walletIdDisplay .id-value { font-weight: bold; }
+        #copyButton { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; font-size: 1rem; margin-left: 0.5rem; width: auto; margin-bottom: 0; opacity: 0.8; transition: opacity 0.2s; }
+        #copyButton:hover { opacity: 1; }
+        input, button { padding: 0.8rem; font-size: 1rem; border-radius: 0; border: 1px solid #ced4da; margin-bottom: 1rem; width: 100%; transition: all 0.2s ease-in-out; }
+        input[type="checkbox"] { width: auto; margin-right: 0.5rem; }
+        label { display: flex; align-items: center; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted); }
+        input { background: #f1f3f5; color: var(--text-light); }
+        input::placeholder { color: var(--text-muted); }
+        button { background: var(--primary); color: white; font-weight: bold; border: none; position: relative; }
+        button:hover { background: var(--primary-light); }
+        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+        button.admin-reset { background-color: var(--danger); }
+        .qr-placeholder { width: 100%; display: flex; justify-content: center; margin-bottom: 1rem; }
+        .loading-spinner { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 1.2rem; height: 1.2rem; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+        .is-loading .loading-spinner { display: block; }
+        .is-loading span { visibility: hidden; }
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+        pre { background: #e9ecef; color: var(--text-light); padding: 1rem; border: 1px solid #ced4da; max-height: 300px; overflow-y: auto; font-size: 0.9rem; line-height: 1.4; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -305,7 +127,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY41xp3sxrhT_twOJ8w/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbx2REzw5TLWiC_2X2Nh0uaUmJFYy6PC8rg3wE6VvZNsAGhSqR0hztyWdcsIgRHwWnN00Q/exec";
     let currentWalletId = "", currentUsername = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
     let html5QrCode;
     let pollIntervalId;
@@ -730,7 +552,6 @@
         const res = await fetch(`${API_URL}?action=listTx&limit=10&username=${encodeURIComponent(currentUsername)}`);
         const data = await res.json();
 
-        // Check only for new incoming transactions
         const newIncoming = data.filter(tx => 
             tx.to.toLowerCase() === currentUsername.toLowerCase() &&
             !lastTxIds.includes(tx.ts)
@@ -745,7 +566,7 @@
                 showConfirmButton: false,
                 timerProgressBar: true
             });
-            refreshBalance(); // Refresh the balance after a new transaction
+            refreshBalance();
         });
         
         lastTxIds = data.map(tx => tx.ts);
