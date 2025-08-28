@@ -1,1 +1,545 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>HyperRush Coins</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"><style>:root{--primary:#0a58ca;--primary-light:#2c7be5;--bg-dark:#0d1117;--bg-card:#161b22;--text-light:#f0f6fc;--text-muted:#8b949e;--success:#198754;--danger:#dc3545}*{box-sizing:border-box}body{margin:0;padding:0;font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg-dark);color:var(--text-light);display:flex;flex-direction:column;align-items:center;min-height:100vh}header{text-align:center;padding:2rem;background:var(--bg-card);width:100%;box-shadow:0 4px 12px rgba(10,88,202,0.15)}header h1{margin:0;font-size:2.5rem;color:var(--primary)}.container{width:100%;max-width:900px;padding:2rem;display:flex;flex-direction:column;gap:2rem}@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}.card{background:var(--bg-card);border-radius:12px;padding:1.5rem;box-shadow:0 6px 20px rgba(10,88,202,0.1);transition:all 0.3s ease}.card:hover{box-shadow:0 8px 28px rgba(10,88,202,0.25)}.section-title{font-size:1.2rem;font-weight:bold;margin-bottom:1rem;color:var(--primary)}input,button{padding:0.8rem;font-size:1rem;border-radius:8px;border:none;margin-bottom:1rem;width:100%}input{background:#22272e;color:var(--text-light)}input::placeholder{color:var(--text-muted)}button{background:var(--primary);color:white;font-weight:bold;transition:background 0.3s ease}button:hover{background:var(--primary-light)}pre{background:#0c0c0c;color:#39ff14;padding:1rem;border-radius:8px;max-height:300px;overflow-y:auto;font-size:0.9rem}.hidden{display:none}@media(max-width:600px){header h1{font-size:1.8rem}.container{padding:1rem}}</style></head><body><header><h1>HyperRush Coins</h1></header><div class="container"><div class="card" id="welcomeScreen"><div class="section-title">Welcome</div><button onclick="showCreate()">Create New Wallet</button><button onclick="showLogin()">Login to Wallet</button></div><div class="card hidden" id="createScreen"><div class="section-title">Create Wallet</div><input id="newPassword" type="password" placeholder="Enter password"><button onclick="createAccount()">Create</button><button onclick="backToWelcome()">Back</button></div><div class="card hidden" id="loginScreen"><div class="section-title">Login</div><input id="walletId" placeholder="Wallet ID"><input id="walletPassword" type="password" placeholder="Password"><button onclick="login()">Login</button><button onclick="backToWelcome()">Back</button></div><div class="card hidden" id="walletActions"><div class="section-title">Wallet</div><div id="walletInfo"></div><hr><div class="section-title">Add Coins</div><input id="addAmount" type="number" placeholder="Amount"><button onclick="addCoins()">Add Coins</button><div class="section-title">Transfer Coins</div><input id="to" placeholder="Recipient Wallet ID"><input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()"><input id="memo" placeholder="Memo (optional)"><button onclick="transfer()">Send</button><div class="section-title">History</div><button onclick="listTx()">Refresh</button><pre id="txLog"></pre></div><div class="card hidden" id="adminScreen"><div class="section-title">Admin Reset</div><input id="adminPassword" type="password" placeholder="Admin Password"><button onclick="adminReset()" style="background-color:var(--danger);">Reset All</button></div></div><script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script><script>const API_URL="https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY41xp3sxrhT_twOJ8w/exec";let currentWalletId="",currentPassword="",currentBalance=0,lastTxIds=[];function showCreate(){hideAll();document.getElementById("createScreen").classList.remove("hidden")}function showLogin(){hideAll();document.getElementById("loginScreen").classList.remove("hidden")}function backToWelcome(){hideAll();document.getElementById("welcomeScreen").classList.remove("hidden")}function hideAll(){document.querySelectorAll(".card").forEach(c=>c.classList.add("hidden"))}function formatNumber(n){return Number(n).toLocaleString("en-US")}async function createAccount(){const pw=document.getElementById("newPassword").value;if(!pw)return Swal.fire("Error","Enter a password","error");const res=await fetch(`${API_URL}?action=createWallet&password=${encodeURIComponent(pw)}`);const data=await res.json();if(data.error)return Swal.fire("Error",data.error,"error");Swal.fire("Success",`Wallet created: <code>${data.id}</code>`,"success");backToWelcome()}async function login(){const id=document.getElementById("walletId").value;const pw=document.getElementById("walletPassword").value;if(!id||!pw)return Swal.fire("Error","Missing credentials","error");const res=await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(id)}&password=${encodeURIComponent(pw)}`);const data=await res.json();if(data.error)return Swal.fire("Error",data.error,"error");currentWalletId=id;currentPassword=pw;currentBalance=data.balance;hideAll();document.getElementById("walletActions").classList.remove("hidden");document.getElementById("walletInfo").innerText=`Balance: ${formatNumber(data.balance)} coins`;listTx();pollIncoming()}async function refreshBalance(){const res=await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(currentPassword)}`);const data=await res.json();if(!data.error){currentBalance=data.balance;document.getElementById("walletInfo").innerText=`Balance: ${formatNumber(currentBalance)} coins`}return currentBalance}async function addCoins(){const amt=parseFloat(document.getElementById("addAmount").value);if(isNaN(amt)||amt<=0)return Swal.fire("Error","Invalid amount","error");const res=await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);const data=await res.json();if(data.error)return Swal.fire("Error",data.error,"error");Swal.fire("Success",`${formatNumber(amt)} coins added`,"success");await refreshBalance();listTx()}async function transfer(){const to=document.getElementById("to").value;const amt=parseFloat(document.getElementById("transferAmount").value);const memo=document.getElementById("memo").value;if(!to||isNaN(amt)||amt<=0)return Swal.fire("Error","Check fields","error");await refreshBalance();if(amt>currentBalance)return Swal.fire("Error","Insufficient balance","error");if(to===currentWalletId)return Swal.fire("Error","Cannot send to self","error");const res=await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(currentWalletId)}&to=${encodeURIComponent(to)}&amount=${amt}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(currentPassword)}`);const data=await res.json();if(data.error)return Swal.fire("Error",data.error,"error");Swal.fire("Success",`Sent ${formatNumber(amt)} to ${to}`,"success");await refreshBalance();listTx()}async function listTx(){const res=await fetch(`${API_URL}?action=listTx&limit=50`);const data=await res.json();document.getElementById("txLog").innerText=JSON.stringify(data.map(t=>({...t,amount:formatNumber(t.amount)})),null,2);lastTxIds=data.map(tx=>tx.ts)}async function adminReset(){const pw=document.getElementById("adminPassword").value;if(!pw)return Swal.fire("Error","Enter admin password","error");const res=await fetch(`${API_URL}?action=adminReset&password=${encodeURIComponent(pw)}`);const data=await res.json();if(data.error)return Swal.fire("Error",data.error,"error");Swal.fire("Reset Complete","All data wiped","success");hideAll();document.getElementById("welcomeScreen").classList.remove("hidden");document.getElementById("txLog").innerText="";document.getElementById("walletInfo").innerText="";lastTxIds=[]}function updateMaxTransfer(){document.getElementById("transferAmount").setAttribute("max",currentBalance);document.getElementById("transferAmount").setAttribute("placeholder",`Max: ${formatNumber(currentBalance)}`)}async function pollIncoming(){if(!currentWalletId)return;const res=await fetch(`${API_URL}?action=listTx&limit=50`);const data=await res.json();data.forEach(tx=>{if(!lastTxIds.includes(tx.ts)&&tx.to===currentWalletId&&tx.from!=="system"){Swal.fire({icon:"success",title:"Coins Received",html:`From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo||"-"}`,timer:5000,showConfirmButton:false,timerProgressBar:true});currentBalance+=parseFloat(tx.amount);document.getElementById("walletInfo").innerText=`Balance: ${formatNumber(currentBalance)} coins`}});lastTxIds=data.map(tx=>tx.ts)}setInterval(pollIncoming,5000);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HyperRush Coins</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-light: #0056b3;
+            --bg-dark: #f8f9fa;
+            --bg-card: #ffffff;
+            --text-light: #212529;
+            --text-muted: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --border-color: #dee2e6;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg-card);
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: var(--primary);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        @media (min-width: 600px) {
+            .container {
+                padding: 2rem;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+
+        .card:hover {
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        #walletInfo {
+            font-size: 1.1rem;
+        }
+
+        #walletIdDisplay {
+            word-wrap: break-word;
+            font-family: monospace;
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        #walletIdDisplay .label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-right: 0.5rem;
+        }
+
+        #walletIdDisplay .id-value {
+            font-weight: bold;
+        }
+
+        #copyButton {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            margin-left: 0.5rem;
+            width: auto;
+            margin-bottom: 0;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        #copyButton:hover {
+            opacity: 1;
+        }
+
+        input, button {
+            padding: 0.8rem;
+            font-size: 1rem;
+            border-radius: 0;
+            border: 1px solid #ced4da;
+            margin-bottom: 1rem;
+            width: 100%;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        input {
+            background: #f1f3f5;
+            color: var(--text-light);
+        }
+
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            border: none;
+            position: relative;
+        }
+
+        button:hover {
+            background: var(--primary-light);
+        }
+
+        button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 1.2rem;
+            height: 1.2rem;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .is-loading .loading-spinner {
+            display: block;
+        }
+        
+        .is-loading span {
+            visibility: hidden;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        pre {
+            background: #e9ecef;
+            color: var(--text-light);
+            padding: 1rem;
+            border: 1px solid #ced4da;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>HyperRush Coins</h1>
+</header>
+<div class="container">
+    <div class="card" id="welcomeScreen">
+        <div class="section-title">Welcome</div>
+        <button onclick="showCreate()">Create New Wallet</button>
+        <button onclick="showLogin()">Login to Wallet</button>
+    </div>
+    <div class="card hidden" id="createScreen">
+        <div class="section-title">Create Wallet</div>
+        <input id="newPassword" type="password" placeholder="Enter password">
+        <button id="createButton" onclick="createAccount()"><span>Create</span><div class="loading-spinner"></div></button>
+        <button onclick="backToWelcome()">Back</button>
+    </div>
+    <div class="card hidden" id="loginScreen">
+        <div class="section-title">Login</div>
+        <input id="walletId" placeholder="Wallet ID">
+        <input id="walletPassword" type="password" placeholder="Password">
+        <label><input type="checkbox" id="rememberMe"> Onthoud mij</label>
+        <button id="loginButton" onclick="login()"><span>Login</span><div class="loading-spinner"></div></button>
+        <button onclick="backToWelcome()">Back</button>
+    </div>
+    <div class="card hidden" id="walletActions">
+        <div class="section-title">Wallet</div>
+        <div id="walletIdDisplay"></div>
+        <div id="walletInfo"></div>
+        <hr>
+        <div class="section-title">Add Coins</div>
+        <input id="addAmount" type="number" placeholder="Amount">
+        <button id="addCoinsButton" onclick="addCoins()"><span>Add Coins</span><div class="loading-spinner"></div></button>
+        <div class="section-title">Transfer Coins</div>
+        <input id="to" placeholder="Recipient Wallet ID">
+        <input id="transferAmount" type="number" placeholder="Amount" oninput="updateMaxTransfer()">
+        <input id="memo" placeholder="Memo (optional)">
+        <button id="transferButton" onclick="transfer()"><span>Send</span><div class="loading-spinner"></div></button>
+        <div class="section-title">History</div>
+        <button id="listTxButton" onclick="listTx()"><span>Refresh</span><div class="loading-spinner"></div></button>
+        <pre id="txLog"></pre>
+        <hr>
+        <button onclick="logout()">Uitloggen</button>
+    </div>
+    <div class="card hidden" id="adminScreen">
+        <div class="section-title">Admin Reset</div>
+        <input id="adminPassword" type="password" placeholder="Admin Password">
+        <button id="adminResetButton" onclick="adminReset()" style="background-color:var(--danger);"><span>Reset All</span><div class="loading-spinner"></div></button>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY1xp3sxrhT_twOJ8w/exec";
+    let currentWalletId = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadWalletFromStorage();
+    });
+
+    function loadWalletFromStorage() {
+        const storedWallet = localStorage.getItem('hyperrush_wallet');
+        if (storedWallet) {
+            try {
+                const walletData = JSON.parse(storedWallet);
+                document.getElementById('walletId').value = walletData.id;
+                document.getElementById('walletPassword').value = walletData.password;
+                document.getElementById('rememberMe').checked = true;
+                Swal.fire({
+                    title: 'Welkom terug!',
+                    text: 'Je inloggegevens zijn automatisch ingevuld.',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            } catch (e) {
+                console.error("Failed to parse stored wallet data", e);
+                localStorage.removeItem('hyperrush_wallet');
+            }
+        }
+    }
+
+    function showCreate() {
+        hideAll();
+        document.getElementById("createScreen").classList.remove("hidden");
+    }
+
+    function showLogin() {
+        hideAll();
+        document.getElementById("loginScreen").classList.remove("hidden");
+    }
+
+    function backToWelcome() {
+        hideAll();
+        document.getElementById("walletIdDisplay").innerHTML = '';
+        document.getElementById("walletInfo").innerText = '';
+        document.getElementById("welcomeScreen").classList.remove("hidden");
+    }
+
+    function hideAll() {
+        document.querySelectorAll(".card").forEach(c => c.classList.add("hidden"));
+    }
+
+    function formatNumber(n) {
+        return Number(n).toLocaleString("en-US");
+    }
+
+    function setButtonLoading(button, isLoading) {
+        button.disabled = isLoading;
+        if (isLoading) {
+            button.classList.add("is-loading");
+        } else {
+            button.classList.remove("is-loading");
+        }
+    }
+
+    async function createAccount() {
+        const button = document.getElementById("createButton");
+        const pw = document.getElementById("newPassword").value;
+        if (!pw) return Swal.fire("Error", "Enter a password", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=createWallet&password=${encodeURIComponent(pw)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                Swal.fire("Success", `Wallet created: <code>${data.id}</code>`, "success");
+                backToWelcome();
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function login() {
+        const button = document.getElementById("loginButton");
+        const id = document.getElementById("walletId").value;
+        const pw = document.getElementById("walletPassword").value;
+        const rememberMe = document.getElementById("rememberMe").checked;
+
+        if (!id || !pw) return Swal.fire("Error", "Missing credentials", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(id)}&password=${encodeURIComponent(pw)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                currentWalletId = id;
+                currentPassword = pw;
+                currentBalance = data.balance;
+                if (rememberMe) {
+                    localStorage.setItem('hyperrush_wallet', JSON.stringify({ id: id, password: pw }));
+                } else {
+                    localStorage.removeItem('hyperrush_wallet');
+                }
+                hideAll();
+                document.getElementById("walletActions").classList.remove("hidden");
+                updateWalletInfo();
+                listTx();
+                pollIncoming();
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('hyperrush_wallet');
+        currentWalletId = "";
+        currentPassword = "";
+        currentBalance = 0;
+        document.getElementById('walletId').value = "";
+        document.getElementById('walletPassword').value = "";
+        document.getElementById('rememberMe').checked = false;
+        backToWelcome();
+        Swal.fire("Uitgelogd", "Je bent succesvol uitgelogd.", "success");
+    }
+
+    function updateWalletInfo() {
+        const walletIdDisplay = document.getElementById("walletIdDisplay");
+        walletIdDisplay.innerHTML = `<span class="label">Wallet ID:</span> <span class="id-value">${currentWalletId}</span><button id="copyButton" onclick="copyToClipboard('${currentWalletId}')">📋</button>`;
+        document.getElementById("walletInfo").innerText = `Balance: ${formatNumber(currentBalance)} coins`;
+    }
+
+    async function refreshBalance() {
+        const res = await fetch(`${API_URL}?action=getWallet&id=${encodeURIComponent(currentWalletId)}&password=${encodeURIComponent(currentPassword)}`);
+        const data = await res.json();
+        if (!data.error) {
+            currentBalance = data.balance;
+            updateWalletInfo();
+        }
+        return currentBalance;
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Gekopieerd!',
+                text: 'Wallet ID is naar je klembord gekopieerd.',
+                showConfirmButton: false,
+                timer: 1500
+            });
+        }).catch(err => {
+            Swal.fire('Error', 'Kon niet kopiëren: ' + err, 'error');
+        });
+    }
+
+    async function addCoins() {
+        const button = document.getElementById("addCoinsButton");
+        const amt = parseFloat(document.getElementById("addAmount").value);
+        if (isNaN(amt) || amt <= 0) return Swal.fire("Error", "Invalid amount", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=addCoins&id=${encodeURIComponent(currentWalletId)}&amount=${amt}&password=${encodeURIComponent(currentPassword)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                Swal.fire("Success", `${formatNumber(amt)} coins added`, "success");
+                await refreshBalance();
+                listTx();
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function transfer() {
+        const button = document.getElementById("transferButton");
+        const to = document.getElementById("to").value;
+        const amt = parseFloat(document.getElementById("transferAmount").value);
+        const memo = document.getElementById("memo").value;
+        if (!to || isNaN(amt) || amt <= 0) return Swal.fire("Error", "Check fields", "error");
+        await refreshBalance();
+        if (amt > currentBalance) return Swal.fire("Error", "Insufficient balance", "error");
+        if (to === currentWalletId) return Swal.fire("Error", "Cannot send to self", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=transfer&from=${encodeURIComponent(currentWalletId)}&to=${encodeURIComponent(to)}&amount=${amt}&memo=${encodeURIComponent(memo)}&password=${encodeURIComponent(currentPassword)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                Swal.fire("Success", `Sent ${formatNumber(amt)} to ${to}`, "success");
+                await refreshBalance();
+                listTx();
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function listTx() {
+        const button = document.getElementById("listTxButton");
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+            const data = await res.json();
+            document.getElementById("txLog").innerText = JSON.stringify(data.map(t => ({...t, amount: formatNumber(t.amount)})), null, 2);
+            lastTxIds = data.map(tx => tx.ts);
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function adminReset() {
+        const button = document.getElementById("adminResetButton");
+        const pw = document.getElementById("adminPassword").value;
+        if (!pw) return Swal.fire("Error", "Enter admin password", "error");
+
+        setButtonLoading(button, true);
+        try {
+            const res = await fetch(`${API_URL}?action=adminReset&password=${encodeURIComponent(pw)}`);
+            const data = await res.json();
+            if (data.error) {
+                Swal.fire("Error", data.error, "error");
+            } else {
+                Swal.fire("Reset Complete", "All data wiped", "success");
+                hideAll();
+                document.getElementById("welcomeScreen").classList.remove("hidden");
+                document.getElementById("txLog").innerText = "";
+                document.getElementById("walletInfo").innerText = "";
+                lastTxIds = [];
+            }
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    function updateMaxTransfer() {
+        const maxVal = currentBalance;
+        const transferInput = document.getElementById("transferAmount");
+        transferInput.setAttribute("max", maxVal);
+        transferInput.setAttribute("placeholder", `Max: ${formatNumber(maxVal)}`);
+    }
+
+    async function pollIncoming() {
+        if (!currentWalletId) return;
+        const res = await fetch(`${API_URL}?action=listTx&limit=50`);
+        const data = await res.json();
+        data.forEach(tx => {
+            if (!lastTxIds.includes(tx.ts) && tx.to === currentWalletId && tx.from !== "system") {
+                Swal.fire({
+                    icon: "success",
+                    title: "Coins Received",
+                    html: `From: <b>${tx.from}</b><br>Amount: <b>${formatNumber(tx.amount)}</b><br>Memo: ${tx.memo || "-"}`,
+                    timer: 5000,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+                currentBalance += parseFloat(tx.amount);
+                updateWalletInfo();
+            }
+        });
+        lastTxIds = data.map(tx => tx.ts);
+    }
+
+    setInterval(pollIncoming, 5000);
+</script>
+</body>
+</html>
