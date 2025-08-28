@@ -288,6 +288,7 @@
         <div class="section-title">Scan QR Code</div>
         <p>Richt de camera op de QR-code.</p>
         <div id="reader"></div>
+        <button id="switchCameraButton" onclick="switchCamera()" class="hidden"></button>
         <button onclick="stopScanner()">Stop Scanner</button>
         <button onclick="showWalletActions()">Back</button>
     </div>
@@ -303,6 +304,8 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbwqkZMNdax3jqOGtKZWKeSFmXm6noka1riua3fsebXvbeSJd76UY41xp3sxrhT_twOJ8w/exec";
     let currentWalletId = "", currentPassword = "", currentBalance = 0, lastTxIds = [];
     let html5QrCode;
+    let availableCameras = [];
+    let currentCameraId = "";
 
     document.addEventListener('DOMContentLoaded', () => {
         loadWalletFromStorage();
@@ -363,36 +366,28 @@
         document.getElementById("qrScanScreen").classList.remove("hidden");
         
         await stopScanner();
-
-        const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-        };
-
-        const html5QrCode = new Html5Qrcode("reader");
         
         try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                let cameraId = cameras[0].id; // Fallback to first camera
-                // Zoek de achtercamera ("environment")
-                const rearCamera = cameras.find(camera => camera.facingMode === 'environment');
+            availableCameras = await Html5Qrcode.getCameras();
+            if (availableCameras && availableCameras.length) {
+                let initialCameraId = availableCameras[0].id;
+                // Probeer de achtercamera te vinden als standaard
+                const rearCamera = availableCameras.find(camera => camera.facingMode === 'environment' || camera.label.toLowerCase().includes('back'));
                 if (rearCamera) {
-                    cameraId = rearCamera.id;
+                    initialCameraId = rearCamera.id;
                 }
                 
-                await html5QrCode.start(
-                    cameraId,
-                    config,
-                    (decodedText, decodedResult) => {
-                        onScanSuccess(decodedText);
-                    },
-                    (errorMessage) => {
-                        // console.warn(`QR scan error: ${errorMessage}`);
-                    }
-                );
-                window.currentScanner = html5QrCode;
+                currentCameraId = initialCameraId;
+                startScannerWithId(currentCameraId);
+
+                // Toon de switch knop als er meerdere camera's zijn
+                const switchButton = document.getElementById("switchCameraButton");
+                if (availableCameras.length > 1) {
+                    switchButton.classList.remove("hidden");
+                    updateSwitchButtonText();
+                } else {
+                    switchButton.classList.add("hidden");
+                }
             } else {
                 Swal.fire("Error", "Geen camera's gevonden.", "error");
             }
@@ -401,9 +396,57 @@
         }
     }
 
+    async function startScannerWithId(cameraId) {
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        };
+        
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
+        
+        await html5QrCode.start(
+            cameraId,
+            config,
+            (decodedText, decodedResult) => {
+                onScanSuccess(decodedText);
+            },
+            (errorMessage) => {
+                // console.warn(`QR scan error: ${errorMessage}`);
+            }
+        );
+    }
+    
+    async function switchCamera() {
+        if (availableCameras.length <= 1) {
+            return Swal.fire("Info", "Er is maar één camera beschikbaar.", "info");
+        }
+        
+        await stopScanner();
+        
+        const currentIndex = availableCameras.findIndex(camera => camera.id === currentCameraId);
+        const nextIndex = (currentIndex + 1) % availableCameras.length;
+        currentCameraId = availableCameras[nextIndex].id;
+        
+        await startScannerWithId(currentCameraId);
+        updateSwitchButtonText();
+    }
+
+    function updateSwitchButtonText() {
+        const button = document.getElementById("switchCameraButton");
+        const currentCamera = availableCameras.find(camera => camera.id === currentCameraId);
+        if (currentCamera && currentCamera.facingMode === 'environment') {
+            button.innerText = "Switch to Front Camera";
+        } else {
+            button.innerText = "Switch to Back Camera";
+        }
+    }
+
     async function stopScanner() {
-        if (window.currentScanner && window.currentScanner.isScanning) {
-            await window.currentScanner.stop();
+        if (html5QrCode && html5QrCode.isScanning) {
+            await html5QrCode.stop();
         }
     }
 
