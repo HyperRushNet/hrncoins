@@ -11,13 +11,14 @@ const path = require("path");
 const cors = require("cors");
 const compression = require("compression");
 
+// Gebruik altijd een schrijfbare directory!
+const DATA_DIR = process.env.DATA_DIR || "/tmp";
+const SNAPSHOT_FILE = path.join(DATA_DIR, "snapshot.json");
+const OPS_LOG_FILE = path.join(DATA_DIR, "ops.log");
+
 const PORT = process.env.PORT || 3000;
 const ADMIN_CODE = process.env.ADMIN_CODE || "change_me_admin_code";
 const SNAPSHOT_OPS = parseInt(process.env.SNAPSHOT_OPS || "1000", 10);
-
-const DATA_DIR = path.resolve(__dirname);
-const SNAPSHOT_FILE = path.join(DATA_DIR, "snapshot.json");
-const OPS_LOG_FILE = path.join(DATA_DIR, "ops.log");
 
 // In-memory map: key=username, value={ balance: BigInt, infinite?: true, lastOp: timestamp }
 const users = new Map();
