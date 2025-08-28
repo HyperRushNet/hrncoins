@@ -202,6 +202,10 @@ footer {
       <button id="btnDelete" class="ghost">Delete wallet</button>
     </div>
 
+    <div style="margin-top:0.6rem;display:flex">
+      <button id="btnLogout" class="ghost">Logout</button>
+    </div>
+
     <hr style="margin:1rem 0" />
 
     <h3 style="margin:0 0 0.5rem 0">Request payment (QR)</h3>
@@ -408,6 +412,13 @@ async function doDelete() {
   }
 }
 
+function doLogout() {
+  forgetLocal();
+  hideWallet();
+  toast('Logged out');
+  log('Logged out');
+}
+
 /* ----------------------
     QR: generate and better payload
     ---------------------- */
@@ -443,12 +454,14 @@ function generateQRCode() {
     }
   });
   log(`QR generated for ${amount} → ${state.user}`);
-  pollBalanceShort();
+  pollBalanceForMinute();
 }
 
-async function pollBalanceShort() {
-  for (let i = 0; i < 6; i++) {
-    await new Promise(r => setTimeout(r, 3000));
+async function pollBalanceForMinute() {
+  const totalChecks = 12; // 60 seconds / 5 seconds
+  const checkInterval = 5000; // 5 seconds in milliseconds
+  for (let i = 0; i < totalChecks; i++) {
+    await new Promise(r => setTimeout(r, checkInterval));
     await syncBalance();
   }
 }
@@ -588,6 +601,7 @@ window.addEventListener('load', () => {
   $('btnCreate').addEventListener('click', doCreate);
   $('btnAdd100').addEventListener('click', doAdd100);
   $('btnDelete').addEventListener('click', doDelete);
+  $('btnLogout').addEventListener('click', doLogout);
   $('btnGenerate').addEventListener('click', generateQRCode);
   $('btnForget').addEventListener('click', () => {
     forgetLocal();
