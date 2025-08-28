@@ -1,657 +1,491 @@
 <!DOCTYPE html>
 <html lang="nl">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>HRNCoins Wallet — Stabiele versie</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-<script src="https://unpkg.com/html5-qrcode@2.0.0/minified/html5-qrcode.min.js" defer></script>
-<style>
-:root {
-  --bg: #f5f7fb;
-  --card: #fff;
-  --accent: #2563eb;
-  --muted: #6b7280;
-  --success: #15803d;
-  --danger: #dc2626;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: Inter, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
-  margin: 0;
-  background: var(--bg);
-  color: #111;
-}
-
-.container {
-  max-width: 760px;
-  margin: 1rem auto;
-  padding: 1rem;
-}
-
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-h1 {
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.card {
-  background: var(--card);
-  border-radius: 12px;
-  padding: 1rem;
-  margin-top: 1rem;
-  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.04);
-}
-
-label {
-  display: block;
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-
-input,
-select,
-button {
-  width: 100%;
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #e6e9ee;
-  font-size: 1rem;
-}
-
-.row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.row > * {
-  flex: 1;
-}
-
-button.primary {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-}
-
-button.ghost {
-  background: transparent;
-  border: 1px solid #e6e9ee;
-}
-
-.muted {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.balance {
-  font-weight: 700;
-  font-size: 1.4rem;
-}
-
-#qrPreview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.5rem;
-  text-align: center;
-}
-
-#scannerWrapper {
-  position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #000;
-  height: 320px;
-}
-
-#scannerControls {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.toast {
-  position: fixed;
-  right: 1rem;
-  top: 1rem;
-  background: #111;
-  color: #fff;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  opacity: 0.95;
-}
-
-.log {
-  height: 140px;
-  overflow: auto;
-  font-family: monospace;
-  background: #f8fafc;
-  padding: 0.5rem;
-  border-radius: 8px;
-  border: 1px solid #eef2ff;
-}
-
-footer {
-  margin-top: 1rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-@media(min-width: 720px) {
-  .row-inline {
-    display: flex;
-    gap: 0.5rem;
-  }
-  .row-inline > * {
-    flex: 1;
-  }
-}
-</style>
-</head>
-<body>
-<div class="container">
-  <header>
-    <h1>HRNCoins Wallet — Stabiele versie</h1>
-    <div class="muted">Client-only UI · synchroniseert altijd met API</div>
-  </header>
-
-  <section id="auth" class="card">
-    <div style="display:flex;gap:0.5rem;align-items:center">
-      <div style="flex:1">
-        <label for="username">Gebruikersnaam</label>
-        <input id="username" placeholder="bijv. jan123" autocomplete="username" />
-      </div>
-      <div style="width:140px">
-        <label>&nbsp;</label>
-        <button id="btnLogin" class="primary">Login</button>
-      </div>
-    </div>
-    <div class="row" style="margin-top:0.6rem">
-      <button id="btnCreate" class="ghost">Maak nieuwe wallet</button>
-      <button id="btnForget" class="ghost">Vergeet lokale staat</button>
-    </div>
-    <p class="muted" style="margin-top:0.6rem">Deze client bewaart alleen de laatste gebruikersnaam lokaal — de waarheid komt altijd van de server.</p>
-  </section>
-
-  <section id="wallet" class="card" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div class="muted">Wallet</div>
-        <div id="walletName" style="font-weight:700">—</div>
-      </div>
-      <div style="text-align:right">
-        <div class="muted">Balance</div>
-        <div class="balance" id="balance">0</div>
-      </div>
-    </div>
-
-    <div style="margin-top:1rem;display:flex;gap:0.5rem">
-      <button id="btnAdd100" class="primary">+100 HRNCoins</button>
-      <button id="btnDelete" class="ghost">Verwijder wallet</button>
-    </div>
-
-    <div style="margin-top:0.6rem;display:flex">
-      <button id="btnLogout" class="ghost">Uitloggen</button>
-    </div>
-
-    <hr style="margin:1rem 0" />
-
-    <h3 style="margin:0 0 0.5rem 0">Vraag betaling aan (QR)</h3>
-    <div class="row-inline">
-      <div>
-        <label for="requestAmount">Bedrag</label>
-        <input id="requestAmount" type="number" min="0.0001" step="0.0001" placeholder="0.00" />
-      </div>
-      <div style="width:160px">
-        <label>&nbsp;</label>
-        <button id="btnGenerate" class="primary">Genereer QR</button>
-      </div>
-    </div>
-    <div id="qrPreview" style="margin-top:0.6rem"></div>
-
-    <hr style="margin:1rem 0" />
-
-    <h3 style="margin:0 0 0.5rem 0">Scan betaling</h3>
-    <div id="scannerWrapper">
-      <div id="scanner" style="width:100%;height:100%"></div>
-    </div>
-    <div id="scannerControls">
-      <select id="cameraSelect"></select>
-      <button id="btnSwitch" class="ghost">Start camera</button>
-      <button id="btnStop" class="ghost">Stop camera</button>
-    </div>
-
-    <div style="margin-top:0.8rem">
-      <div class="muted">Laatste actie</div>
-      <div id="lastAction" class="muted">—</div>
-    </div>
-    <div style="margin-top:0.8rem">
-      <div class="muted">Laatste ontvangen betaling</div>
-      <div id="lastReceivedPayment" class="muted">—</div>
-    </div>
-  </section>
-
-  <div class="card" style="margin-top:1rem">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div class="muted">Logs</div>
-      <div class="muted">API: <span id="apiStatus">idle</span></div>
-    </div>
-    <pre id="log" class="log"></pre>
-  </div>
-
-  <footer>Opslaan: lokaal (gebruikersnaam) — Alle acties synchroniseren met <code>BASE</code> API. Open-source, gebruik op eigen risico.</footer>
-</div>
-
-<script>
-/* ----------------------
-    Config & utilities
-    ---------------------- */
-const BASE = 'https://hrncoins.onrender.com';
-const retryOptions = { retries: 3, backoff: 500 };
-let state = { user: null, balance: 0 };
-let html5QrCode = null;
-let currentCameraId = null;
-let scanning = false;
-let lastServerTransaction = null;
-
-const $ = id => document.getElementById(id);
-
-function log(msg, level = 'info') {
-  const el = $('log');
-  const time = new Date().toISOString();
-  el.textContent += `[${time}] ${msg}\n`;
-  el.scrollTop = el.scrollHeight;
-  $('lastAction').textContent = `${msg}`;
-}
-
-function toast(msg, timeout = 2500) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => {
-    t.remove();
-  }, timeout);
-}
-
-async function fetchWithRetries(url, opts = {}, { retries = 3, backoff = 500 } = retryOptions) {
-  const timeout = opts.timeout ?? 8000;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      const res = await fetch(url, { ...opts, signal: controller.signal });
-      clearTimeout(id);
-      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
-      return res;
-    } catch (err) {
-      if (attempt === retries) throw err;
-      await new Promise(r => setTimeout(r, backoff * (attempt + 1)));
-    }
-  }
-}
-
-/* ----------------------
-    Persistence + sync
-    ---------------------- */
-function saveLocalUsername(u) {
-  localStorage.setItem('hrn_user', u);
-}
-
-function loadLocalUsername() {
-  return localStorage.getItem('hrn_user');
-}
-
-function forgetLocal() {
-  localStorage.removeItem('hrn_user');
-}
-
-async function syncBalance() {
-  if (!state.user) return;
-  $('apiStatus').textContent = 'syncing...';
-  try {
-    const res = await fetchWithRetries(`${BASE}/balance?user=${encodeURIComponent(state.user)}`);
-    const data = await res.json();
-    state.balance = data.balance ?? state.balance;
-    $('balance').textContent = state.balance;
-    $('apiStatus').textContent = 'ok';
-    log(`Synced balance: ${state.balance}`, 'info');
-  } catch (err) {
-    $('apiStatus').textContent = 'error';
-    log('Sync error: ' + err, 'error');
-  }
-}
-
-/* ----------------------
-    Auth / wallet ops
-    ---------------------- */
-async function doLogin() {
-  const user = $('username').value.trim();
-  if (!user) {
-    toast('Vul een gebruikersnaam in');
-    return;
-  }
-  try {
-    const res = await fetchWithRetries(`${BASE}/exists?user=${encodeURIComponent(user)}`);
-    const d = await res.json();
-    if (d.exists) {
-      state.user = user;
-      saveLocalUsername(user);
-      showWallet();
-      await syncBalance();
-      startScannerIfNeeded();
-      toast('Ingelogd');
-    } else {
-      toast('Wallet bestaat niet — maak hem aan');
-    }
-  } catch (err) {
-    log('Login fout: ' + err);
-    toast('Kan server niet bereiken');
-  }
-}
-
-async function doCreate() {
-  const user = $('username').value.trim();
-  if (!user) {
-    toast('Vul een gebruikersnaam in');
-    return;
-  }
-  try {
-    const res = await fetchWithRetries(`${BASE}/createWallet?user=${encodeURIComponent(user)}`);
-    const d = await res.json();
-    state.user = d.name;
-    state.balance = d.balance ?? 0;
-    saveLocalUsername(state.user);
-    showWallet();
-    $('balance').textContent = state.balance;
-    toast('Wallet aangemaakt');
-    log('Created ' + state.user);
-    startScannerIfNeeded();
-  } catch (err) {
-    log('Create error: ' + err);
-    toast('Aanmaken mislukt');
-  }
-}
-
-async function doAdd100() {
-  if (!state.user) return;
-  try {
-    const res = await fetchWithRetries(`${BASE}/deposit?user=${encodeURIComponent(state.user)}&amount=100`);
-    const d = await res.json();
-    state.balance = d.newBalance ?? state.balance;
-    $('balance').textContent = state.balance;
-    toast('+100 geslaagd');
-    log('Deposited 100');
-  } catch (err) {
-    log('Deposit error: ' + err);
-    toast('Deposit mislukt');
-  }
-}
-
-async function doDelete() {
-  if (!state.user) return;
-  if (!confirm(`Verwijder wallet ${state.user}? Dit is onomkeerbaar.`)) return;
-  try {
-    const res = await fetchWithRetries(`${BASE}/deleteAccount?user=${encodeURIComponent(state.user)}`);
-    if (res.ok) {
-      log('Deleted ' + state.user);
-      toast('Wallet verwijderd');
-      hideWallet();
-      forgetLocal();
-    }
-  } catch (err) {
-    log('Delete error: ' + err);
-    toast('Verwijderen mislukt');
-  }
-}
-
-function doLogout() {
-  forgetLocal();
-  hideWallet();
-  toast('Uitgelogd');
-  log('Uitgelogd');
-}
-
-/* ----------------------
-    QR: genereren en betere payload
-    ---------------------- */
-function buildPaymentPayload(to, amount) {
-  const uri = `hrncoins://pay?to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`;
-  const json = JSON.stringify({ to, amount, ts: new Date().toISOString() });
-  return { uri, json };
-}
-
-function generateQRCode() {
-  const amount = $('requestAmount').value.trim();
-  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-    toast('Ongeldig bedrag');
-    return;
-  }
-  const payload = buildPaymentPayload(state.user, amount);
-  const container = $('qrPreview');
-  container.innerHTML = '';
-  new QRCode(container, { text: payload.uri, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.H });
-  const meta = document.createElement('div');
-  meta.style.textAlign = 'center';
-  meta.style.marginTop = '0.5rem';
-  meta.innerHTML = `<div class="muted">URI</div><code style="font-size:0.85rem">${payload.uri}</code><div style="margin-top:0.5rem"><button id="btnCopy" class="ghost">Kopieer URI</button> <button id="btnShare" class="ghost">Deel</button></div>`;
-  container.appendChild(meta);
-  $('btnCopy')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(payload.uri).then(() => toast('Gekopieerd'));
-  });
-  $('btnShare')?.addEventListener('click', () => {
-    if (navigator.share) {
-      navigator.share({ title: 'HRNCoins verzoek', text: `Betaal ${amount} HRNCoins aan ${state.user}`, url: payload.uri }).catch(() => toast('Deel mislukt'));
-    } else {
-      navigator.clipboard.writeText(payload.uri).then(() => toast('Gekopieerd'));
-    }
-  });
-  log(`QR gegenereerd voor ${amount} → ${state.user}`);
-  pollForPayment();
-}
-
-async function pollForPayment() {
-  const totalChecks = 12; // 60 seconds / 5 seconds
-  const checkInterval = 5000; // 5 seconds in milliseconds
-  let checkCount = 0;
-  
-  const poll = setInterval(async () => {
-    try {
-      const res = await fetchWithRetries(`${BASE}/lastTransaction`);
-      const lastTx = await res.json();
-      
-      if (lastTx && lastTx.to === state.user && lastTx.timestamp !== lastServerTransaction?.timestamp) {
-        lastServerTransaction = lastTx;
-        const msg = `Betaling van ${lastTx.amount} ontvangen van ${lastTx.from}`;
-        $('lastReceivedPayment').textContent = msg;
-        log(msg);
-        toast(`Betaling ontvangen!`);
-        await syncBalance();
-        clearInterval(poll);
-      }
-      
-      checkCount++;
-      if (checkCount >= totalChecks) {
-        clearInterval(poll);
-        log('Betalingscontrole gestopt');
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HRNCoins Wallet — Stabiele versie</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #fff;
+        --accent: #2563eb;
+        --muted: #6b7280;
+        --success: #15803d;
+        --danger: #dc2626;
       }
 
-    } catch (err) {
-      log('Fout bij controleren betaling: ' + err);
-      // Blijf proberen tot max aantal checks is bereikt
-    }
-  }, checkInterval);
-}
+      * {
+        box-sizing: border-box;
+      }
 
-/* ----------------------
-    Scanner handling: html5-qrcode
-    ---------------------- */
-async function startScannerIfNeeded() {
-  if (!state.user) return;
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode('scanner');
-  }
-  try {
-    const devices = await Html5Qrcode.getCameras();
-    const select = $('cameraSelect');
-    select.innerHTML = '';
-    devices.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d.id;
-      opt.textContent = d.label || d.id;
-      select.appendChild(opt);
-    });
-    if (devices.length) {
-      currentCameraId = devices[0].id;
-      select.value = currentCameraId;
-    }
-    $('btnSwitch').textContent = 'Start camera';
-    log('Camera\'s gevonden: ' + devices.length);
-  } catch (err) {
-    log('Camera detect error: ' + err);
-  }
-}
+      body {
+        font-family: Inter, system-ui, Segoe UI, Roboto, "Helvetica Neue",
+          Arial, sans-serif;
+        margin: 0;
+        background: var(--bg);
+        color: #111;
+      }
 
-function startCameraById(id) {
-  if (!id) return;
-  if (scanning) {
-    toast('Scanner al actief');
-    return;
-  }
-  const config = { fps: 10, qrbox: (window.innerWidth > 600 ? 350 : 220), aspectRatio: 1.2 };
-  html5QrCode.start(id, config, onScanSuccess, onScanFailure).then(() => {
-    scanning = true;
-    $('btnSwitch').textContent = 'Camera actief';
-    log('Scanner gestart');
-  }).catch(err => {
-    log('Start camera error: ' + err);
-    toast('Kan camera niet starten');
-  });
-}
+      .container {
+        max-width: 760px;
+        margin: 1rem auto;
+        padding: 1rem;
+      }
 
-function stopCamera() {
-  if (html5QrCode && scanning) {
-    html5QrCode.stop().then(() => {
-      scanning = false;
-      $('btnSwitch').textContent = 'Start camera';
-      log('Scanner gestopt');
-    }).catch(err => log('Stop camera error: ' + err));
-  }
-}
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
 
-let lastScanTs = 0;
-async function onScanSuccess(decodedText, decodedResult) {
-  const now = Date.now();
-  if (now - lastScanTs < 3000) return;
-  lastScanTs = now;
-  log('Scanned: ' + decodedText);
-  try {
-    let payload = null;
-    if (decodedText.startsWith('hrncoins://')) {
-      const u = new URL(decodedText);
-      const to = u.searchParams.get('to');
-      const amount = u.searchParams.get('amount');
-      payload = { to, amount };
-    } else {
-      payload = JSON.parse(decodedText);
-    }
-    if (!payload || !payload.to || !payload.amount) {
-      toast('Ongeldig QR payload');
-      return;
-    }
-    if (!confirm(`Bevestig: betaal ${payload.amount} HRNCoins aan ${payload.to}?`)) {
-      log('Betaling geannuleerd');
-      return;
-    }
-    await doTransfer(payload.to, payload.amount);
-    await syncBalance();
-  } catch (err) {
-    log('Scan parse error: ' + err);
-    toast('Kan QR niet verwerken');
-  }
-}
+      h1 {
+        font-size: 1.1rem;
+        margin: 0;
+      }
 
-function onScanFailure(error) { /* we negeren frequente failures */ }
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+        box-shadow: 0 6px 18px rgba(16, 24, 40, 0.04);
+      }
 
-async function doTransfer(to, amount) {
-  if (!state.user) return;
-  try {
-    const res = await fetchWithRetries(`${BASE}/transfer?from=${encodeURIComponent(state.user)}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`);
-    if (res.ok) {
-      toast('Betaling verstuurd');
-      log(`Paid ${amount} to ${to}`);
-    }
-  } catch (err) {
-    log('Transfer error: ' + err);
-    toast('Betaling mislukt');
-  }
-}
+      label {
+        display: block;
+        font-size: 0.9rem;
+        color: var(--muted);
+        margin-bottom: 0.25rem;
+      }
 
-/* ----------------------
-    Small helpers: UI show/hide
-    ---------------------- */
-function showWallet() {
-  $('auth').style.display = 'none';
-  $('wallet').style.display = 'block';
-  $('walletName').textContent = state.user;
-}
+      input,
+      select,
+      button {
+        width: 100%;
+        padding: 0.6rem;
+        border-radius: 8px;
+        border: 1px solid #e6e9ee;
+        font-size: 1rem;
+      }
 
-function hideWallet() {
-  $('auth').style.display = 'block';
-  $('wallet').style.display = 'none';
-  state = { user: null, balance: 0 };
-  $('balance').textContent = '0';
-  $('qrPreview').innerHTML = '';
-  stopCamera();
-}
+      .row {
+        display: flex;
+        gap: 0.5rem;
+      }
 
-/* ----------------------
-    Wire up events
-    ---------------------- */
-window.addEventListener('load', () => {
-  const last = loadLocalUsername();
-  if (last) {
-    $('username').value = last;
-  }
+      .row > * {
+        flex: 1;
+      }
 
-  $('btnLogin').addEventListener('click', doLogin);
-  $('btnCreate').addEventListener('click', doCreate);
-  $('btnAdd100').addEventListener('click', doAdd100);
-  $('btnDelete').addEventListener('click', doDelete);
-  $('btnLogout').addEventListener('click', doLogout);
-  $('btnGenerate').addEventListener('click', generateQRCode);
-  $('btnForget').addEventListener('click', () => {
-    forgetLocal();
-    toast('Lokale staat verwijderd');
-  });
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+      }
 
-  $('cameraSelect').addEventListener('change', (e) => {
-    currentCameraId = e.target.value;
-  });
-  $('btnSwitch').addEventListener('click', () => {
-    if (!scanning) startCameraById(currentCameraId);
-    else stopCamera();
-  });
-  $('btnStop').addEventListener('click', stopCamera);
-});
+      button.ghost {
+        background: transparent;
+        border: 1px solid #e6e9ee;
+      }
 
-window.addEventListener('beforeunload', () => {
-  try {
-    if (html5QrCode && scanning) html5QrCode.stop();
-  } catch (e) {}
-});
-</script>
-</body>
+      .muted {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .balance {
+        font-weight: 700;
+        font-size: 1.4rem;
+      }
+
+      .toast {
+        position: fixed;
+        right: 1rem;
+        top: 1rem;
+        background: #111;
+        color: #fff;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        opacity: 0.95;
+      }
+
+      .log {
+        height: 140px;
+        overflow: auto;
+        font-family: monospace;
+        background: #f8fafc;
+        padding: 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #eef2ff;
+      }
+
+      footer {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      @media (min-width: 720px) {
+        .row-inline {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .row-inline > * {
+          flex: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>HRNCoins Wallet — Stabiele versie</h1>
+        <div class="muted">
+          Client-only UI · synchroniseert altijd met API
+        </div>
+      </header>
+
+      <section id="auth" class="card">
+        <div style="display: flex; gap: 0.5rem; align-items: center">
+          <div style="flex: 1">
+            <label for="username">Gebruikersnaam</label>
+            <input
+              id="username"
+              placeholder="bijv. jan123"
+              autocomplete="username"
+            />
+          </div>
+          <div style="width: 140px">
+            <label>&nbsp;</label>
+            <button id="btnLogin" class="primary">Login</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 0.6rem">
+          <button id="btnCreate" class="ghost">Maak nieuwe wallet</button>
+          <button id="btnForget" class="ghost">Vergeet lokale staat</button>
+        </div>
+        <p class="muted" style="margin-top: 0.6rem">
+          Deze client bewaart alleen de laatste gebruikersnaam lokaal — de
+          waarheid komt altijd van de server.
+        </p>
+      </section>
+
+      <section id="wallet" class="card" style="display: none">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <div>
+            <div class="muted">Wallet</div>
+            <div id="walletName" style="font-weight: 700">—</div>
+          </div>
+          <div style="text-align: right">
+            <div class="muted">Balance</div>
+            <div class="balance" id="balance">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem">
+          <button id="btnAdd100" class="primary">+100 HRNCoins</button>
+          <button id="btnDelete" class="ghost">Verwijder wallet</button>
+        </div>
+
+        <div style="margin-top: 0.6rem; display: flex">
+          <button id="btnLogout" class="ghost">Uitloggen</button>
+        </div>
+
+        <hr style="margin: 1rem 0" />
+
+        <h3 style="margin: 0 0 0.5rem 0">Verstuur betaling</h3>
+        <div class="row-inline">
+          <div>
+            <label for="recipientId">ID van de ontvanger</label>
+            <input id="recipientId" placeholder="bijv. rode-schaap-22" />
+          </div>
+        </div>
+        <div class="row-inline" style="margin-top: 0.6rem">
+          <div>
+            <label for="sendAmount">Bedrag</label>
+            <input
+              id="sendAmount"
+              type="number"
+              min="0.0001"
+              step="0.0001"
+              placeholder="0.00"
+            />
+          </div>
+          <div style="width: 160px">
+            <label>&nbsp;</label>
+            <button id="btnSend" class="primary">Verstuur</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 0.8rem">
+          <div class="muted">Laatste actie</div>
+          <div id="lastAction" class="muted">—</div>
+        </div>
+      </section>
+
+      <div class="card" style="margin-top: 1rem">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <div class="muted">Logs</div>
+          <div class="muted">API: <span id="apiStatus">idle</span></div>
+        </div>
+        <pre id="log" class="log"></pre>
+      </div>
+
+      <footer>
+        Opslaan: lokaal (gebruikersnaam) — Alle acties synchroniseren met
+        <code>BASE</code> API. Open-source, gebruik op eigen risico.
+      </footer>
+    </div>
+
+    <script>
+      /* ----------------------    Config & utilities    ---------------------- */
+      const BASE = "https://hrncoins.onrender.com";
+      const retryOptions = { retries: 3, backoff: 500 };
+      let state = { user: null, balance: 0 };
+      let lastServerTransaction = null;
+
+      const $ = (id) => document.getElementById(id);
+
+      function log(msg, level = "info") {
+        const el = $("log");
+        const time = new Date().toISOString();
+        el.textContent += `[${time}] ${msg}\n`;
+        el.scrollTop = el.scrollHeight;
+        $("lastAction").textContent = `${msg}`;
+      }
+
+      function toast(msg, timeout = 2500) {
+        const t = document.createElement("div");
+        t.className = "toast";
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => {
+          t.remove();
+        }, timeout);
+      }
+
+      async function fetchWithRetries(
+        url,
+        opts = {},
+        { retries = 3, backoff = 500 } = retryOptions
+      ) {
+        const timeout = opts.timeout ?? 8000;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+          try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            const res = await fetch(url, { ...opts, signal: controller.signal });
+            clearTimeout(id);
+            if (!res.ok)
+              throw new Error(await res.text().catch(() => res.statusText));
+            return res;
+          } catch (err) {
+            if (attempt === retries) throw err;
+            await new Promise((r) => setTimeout(r, backoff * (attempt + 1)));
+          }
+        }
+      }
+
+      /* ----------------------    Persistence + sync    ---------------------- */
+      function saveLocalUsername(u) {
+        localStorage.setItem("hrn_user", u);
+      }
+
+      function loadLocalUsername() {
+        return localStorage.getItem("hrn_user");
+      }
+
+      function forgetLocal() {
+        localStorage.removeItem("hrn_user");
+      }
+
+      async function syncBalance() {
+        if (!state.user) return;
+        $("apiStatus").textContent = "syncing...";
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/balance?user=${encodeURIComponent(state.user)}`
+          );
+          const data = await res.json();
+          state.balance = data.balance ?? state.balance;
+          $("balance").textContent = state.balance;
+          $("apiStatus").textContent = "ok";
+          log(`Synced balance: ${state.balance}`, "info");
+        } catch (err) {
+          $("apiStatus").textContent = "error";
+          log("Sync error: " + err, "error");
+        }
+      }
+
+      /* ----------------------    Auth / wallet ops    ---------------------- */
+      async function doLogin() {
+        const user = $("username").value.trim();
+        if (!user) {
+          toast("Vul een gebruikersnaam in");
+          return;
+        }
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/exists?user=${encodeURIComponent(user)}`
+          );
+          const d = await res.json();
+          if (d.exists) {
+            state.user = user;
+            saveLocalUsername(user);
+            showWallet();
+            await syncBalance();
+            toast("Ingelogd");
+          } else {
+            toast("Wallet bestaat niet — maak hem aan");
+          }
+        } catch (err) {
+          log("Login fout: " + err);
+          toast("Kan server niet bereiken");
+        }
+      }
+
+      async function doCreate() {
+        const user = $("username").value.trim();
+        if (!user) {
+          toast("Vul een gebruikersnaam in");
+          return;
+        }
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/createWallet?user=${encodeURIComponent(user)}`
+          );
+          const d = await res.json();
+          state.user = d.name;
+          state.balance = d.balance ?? 0;
+          saveLocalUsername(state.user);
+          showWallet();
+          $("balance").textContent = state.balance;
+          toast("Wallet aangemaakt");
+          log("Created " + state.user);
+        } catch (err) {
+          log("Create error: " + err);
+          toast("Aanmaken mislukt");
+        }
+      }
+
+      async function doAdd100() {
+        if (!state.user) return;
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/deposit?user=${encodeURIComponent(state.user)}&amount=100`
+          );
+          const d = await res.json();
+          state.balance = d.newBalance ?? state.balance;
+          $("balance").textContent = state.balance;
+          toast("+100 geslaagd");
+          log("Deposited 100");
+        } catch (err) {
+          log("Deposit error: " + err);
+          toast("Deposit mislukt");
+        }
+      }
+
+      async function doDelete() {
+        if (!state.user) return;
+        if (!confirm(`Verwijder wallet ${state.user}? Dit is onomkeerbaar.`))
+          return;
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/deleteAccount?user=${encodeURIComponent(state.user)}`
+          );
+          if (res.ok) {
+            log("Deleted " + state.user);
+            toast("Wallet verwijderd");
+            hideWallet();
+            forgetLocal();
+          }
+        } catch (err) {
+          log("Delete error: " + err);
+          toast("Verwijderen mislukt");
+        }
+      }
+
+      function doLogout() {
+        forgetLocal();
+        hideWallet();
+        toast("Uitgelogd");
+        log("Uitgelogd");
+      }
+
+      /* ----------------------    Transfer handling    ---------------------- */
+      async function doTransfer() {
+        const to = $("recipientId").value.trim();
+        const amount = $("sendAmount").value.trim();
+        if (!to || !amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+          toast("Ongeldige ontvanger of bedrag");
+          return;
+        }
+
+        if (
+          !confirm(
+            `Bevestig: betaal ${amount} HRNCoins aan ${to}?`
+          )
+        ) {
+          log("Betaling geannuleerd");
+          return;
+        }
+
+        if (!state.user) {
+          toast("U moet ingelogd zijn om te versturen.");
+          return;
+        }
+
+        try {
+          const res = await fetchWithRetries(
+            `${BASE}/transfer?from=${encodeURIComponent(
+              state.user
+            )}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`
+          );
+          if (res.ok) {
+            toast("Betaling verstuurd");
+            log(`Paid ${amount} to ${to}`);
+            await syncBalance();
+          }
+        } catch (err) {
+          log("Transfer error: " + err);
+          toast("Betaling mislukt");
+        }
+      }
+
+      /* ----------------------    Small helpers: UI show/hide    ---------------------- */
+      function showWallet() {
+        $("auth").style.display = "none";
+        $("wallet").style.display = "block";
+        $("walletName").textContent = state.user;
+      }
+
+      function hideWallet() {
+        $("auth").style.display = "block";
+        $("wallet").style.display = "none";
+        state = { user: null, balance: 0 };
+        $("balance").textContent = "0";
+      }
+
+      /* ----------------------    Wire up events    ---------------------- */
+      window.addEventListener("load", () => {
+        const last = loadLocalUsername();
+        if (last) {
+          $("username").value = last;
+        }
+
+        $("btnLogin").addEventListener("click", doLogin);
+        $("btnCreate").addEventListener("click", doCreate);
+        $("btnAdd100").addEventListener("click", doAdd100);
+        $("btnDelete").addEventListener("click", doDelete);
+        $("btnLogout").addEventListener("click", doLogout);
+        $("btnSend").addEventListener("click", doTransfer);
+        $("btnForget").addEventListener("click", () => {
+          forgetLocal();
+          toast("Lokale staat verwijderd");
+        });
+      });
+    </script>
+  </body>
 </html>
